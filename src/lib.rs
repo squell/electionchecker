@@ -171,3 +171,24 @@ pub fn allocate<const N: usize>(total_seats: Seats, votes: [Votes; N], seats: &m
         allocate_per_surplus(total_seats, votes, seats);
     }
 }
+
+pub fn allocate_national<const N: usize>(
+    mut total_seats: Seats,
+    votes: [Votes; N],
+    seats: &mut [Seats; N],
+) {
+    let vote_count = votes.iter().map(|Votes(count)| count).sum::<Count>();
+    let seat_count = total_seats.count();
+
+    allocate_seats(
+        &votes,
+        seats,
+        &mut total_seats,
+        |Votes(cur_vote), cur_seat| {
+            (cur_vote * seat_count >= vote_count).then_some(Fraction {
+                numerator: cur_vote,
+                denominator: cur_seat.count() + 1,
+            })
+        },
+    );
+}

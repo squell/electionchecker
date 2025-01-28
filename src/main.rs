@@ -37,4 +37,42 @@ fn main() {
 
     run_election(5, votes![19, 19, 19, 19, 15, 9, 9]);
     run_election(18, votes![100, 16, 6, 5, 5, 5, 5, 4]);
+
+    fn run_national_election<const N: usize>(votes: [Votes; N]) {
+        println!("running an election for Tweede Kamer");
+        let mut seats = std::array::from_fn(|_| Seats::unlimited());
+        allocate_national(Seats::filled(150), votes, &mut seats);
+        print_seats(seats.into_iter());
+        println!("======");
+    }
+
+    #[rustfmt::skip]
+    run_national_election(votes![
+        2_450_878,
+        1_643_073,
+        1_589_519,
+        1_343_287,
+          656_292,
+          485_551,
+          345_822,
+          328_225,
+          246_765,
+          235_148,
+          232_963,
+          217_270,
+          212_532,
+          178_802,
+           71_345,
+           52_913,
+           51_043,
+           44_253,
+           12_838,
+            9_117,
+            5_487,
+            5_325,
+            5_122,
+            4_152,
+            3_966,
+            1_038,
+    ]);
 }
