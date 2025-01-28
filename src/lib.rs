@@ -51,6 +51,7 @@ pub fn absolute_majority_check<const N: usize>(
                 && !absolute_majority(cur_seat.count(), total_seats)
         })
     {
+        #[cfg(feature = "chatty")]
         eprintln!("an absolute majority correction was performed");
         winner_seat.transfer(&mut correction);
         let winner_seat = *winner_seat;
@@ -64,12 +65,21 @@ pub fn absolute_majority_check<const N: usize>(
     }
 }
 
+#[cfg(feature = "chatty")]
 pub fn whole_seats_available(votes: &[Votes], seats: &[Seats], seats_awarded: Seats) -> bool {
     let total_seats = seats_awarded.count() + seats.iter().map(|x| x.count()).sum::<Count>();
     let total_votes = votes.iter().map(|Votes(x)| x).sum::<Count>();
     iter::zip(votes, seats).any(|(Votes(cur_vote), cur_seat)| {
         cur_vote * total_seats >= total_votes * (cur_seat.count() + 1)
     })
+}
+
+#[cfg(feature = "chatty")]
+fn debug_results<'a>(seats: impl Iterator<Item = &'a Seats>) {
+    for seat in seats {
+        eprint!("{seat}, ");
+    }
+    eprintln!();
 }
 
 pub fn allocate_seats<Quality: Ord, const N: usize>(
@@ -79,28 +89,25 @@ pub fn allocate_seats<Quality: Ord, const N: usize>(
     method: impl Fn(Votes, Seats) -> Option<Quality> + Copy,
 ) {
     let mut last_winners = seats.to_owned();
+    #[cfg(feature = "chatty")]
     let mut printed = false;
     while available_seats.count() > 0 {
+        #[cfg(feature = "chatty")]
         if !(whole_seats_available(votes, seats, *available_seats) || printed) {
             printed = true;
             eprintln!("rest seats");
         }
 
         last_winners.copy_from_slice(seats);
-        for seat in seats.iter() {
-            eprint!("{seat}, ");
-        }
-        eprintln!();
 
         if allocate_single_step(votes, seats, available_seats, method).is_none() {
             return;
         }
+
+        #[cfg(feature = "chatty")]
+        debug_results(seats.iter());
     }
 
-    for seat in seats.iter() {
-        eprint!("{seat}, ");
-    }
-    eprintln!();
     absolute_majority_check(votes, seats, last_winners);
 }
 
@@ -143,6 +150,7 @@ pub fn allocate_per_surplus<const N: usize>(
     );
 
     if total_seats.count() > 0 {
+        #[cfg(feature = "chatty")]
         eprintln!("continuing by averages");
         allocate_seats(
             &votes,

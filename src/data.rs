@@ -114,6 +114,7 @@ pub fn ballotted<T>(mut vec: Vec<T>, limit: Count) -> Vec<T> {
     use rand::seq::SliceRandom;
 
     let limit: usize = limit.try_into().unwrap();
+    #[cfg(feature = "chatty")]
     if limit < vec.len() {
         eprintln!("non-deterministic choice!");
     }
