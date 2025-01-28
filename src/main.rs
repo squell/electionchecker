@@ -8,6 +8,14 @@ fn main() {
 	}
     }
 
+    println!(
+        "kiesraad-model  Copyright (C) 2025  Marc Schoolderman
+This program comes with ABSOLUTELY NO WARRANTY
+This is free software, and you are welcome to redistribute it
+under certain conditions, see the file LICENSE
+"
+    );
+
     fn print_seats(seats: impl Iterator<Item = Seats>) {
         print!("result = ");
         for seat in seats {
