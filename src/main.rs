@@ -76,6 +76,18 @@ fn main() {
             3_966,
             1_038,
     ]);
+
+    println!("a corner case in our national voting system");
+    let votes = votes![33, 7];
+    let mut seats = vec![Seats::limited(2), Seats::limited(13)];
+    allocate(Seats::filled(4), votes, &mut seats);
+    print_seats(seats.into_iter());
+
+    println!("a weird consequence of a little sentence in the law");
+    let votes = votes![33, 7, 0];
+    let mut seats = vec![Seats::limited(2), Seats::limited(12), Seats::limited(2)];
+    allocate(Seats::filled(4), votes, &mut seats);
+    print_seats(seats.into_iter());
 }
 
 #[cfg(feature = "validate")]
