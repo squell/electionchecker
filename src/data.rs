@@ -36,7 +36,7 @@ impl Seats {
     pub fn filled(awarded: Count) -> Self {
         Seats {
             awarded,
-            limit: awarded,
+            limit: Count::MAX,
         }
     }
 
