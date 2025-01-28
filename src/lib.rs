@@ -3,9 +3,9 @@ mod data;
 pub use data::*;
 use std::iter;
 
-pub fn allocate_single_step<Quality: Ord, const N: usize>(
-    votes: &[Votes; N],
-    seats: &mut [Seats; N],
+pub fn allocate_single_step<Quality: Ord>(
+    votes: &[Votes],
+    seats: &mut [Seats],
     available_seats: &mut Seats,
     criterion: impl Fn(Votes, Seats) -> Option<Quality>,
 ) -> Option<()> {
@@ -32,11 +32,7 @@ pub fn allocate_single_step<Quality: Ord, const N: usize>(
     Some(())
 }
 
-pub fn absolute_majority_check<const N: usize>(
-    votes: &[Votes; N],
-    seats: &mut [Seats; N],
-    prev_seats: [Seats; N],
-) {
+pub fn absolute_majority_check(votes: &[Votes], seats: &mut [Seats], prev_seats: Vec<Seats>) {
     let total_votes = votes.iter().map(|Votes(count)| count).sum::<Count>();
     let total_seats = seats.iter().map(|count| count.count()).sum::<Count>();
 
@@ -82,9 +78,9 @@ fn debug_results<'a>(seats: impl Iterator<Item = &'a Seats>) {
     eprintln!();
 }
 
-pub fn allocate_seats<Quality: Ord, const N: usize>(
-    votes: &[Votes; N],
-    seats: &mut [Seats; N],
+pub fn allocate_seats<Quality: Ord>(
+    votes: &[Votes],
+    seats: &mut [Seats],
     available_seats: &mut Seats,
     method: impl Fn(Votes, Seats) -> Option<Quality> + Copy,
 ) {
@@ -111,11 +107,7 @@ pub fn allocate_seats<Quality: Ord, const N: usize>(
     absolute_majority_check(votes, seats, last_winners);
 }
 
-pub fn allocate_per_average<const N: usize>(
-    mut total_seats: Seats,
-    votes: [Votes; N],
-    seats: &mut [Seats; N],
-) {
+pub fn allocate_per_average(mut total_seats: Seats, votes: Vec<Votes>, seats: &mut [Seats]) {
     allocate_seats(
         &votes,
         seats,
@@ -129,11 +121,7 @@ pub fn allocate_per_average<const N: usize>(
     );
 }
 
-pub fn allocate_per_surplus<const N: usize>(
-    mut total_seats: Seats,
-    votes: [Votes; N],
-    seats: &mut [Seats; N],
-) {
+pub fn allocate_per_surplus(mut total_seats: Seats, votes: Vec<Votes>, seats: &mut [Seats]) {
     let vote_count = votes.iter().map(|Votes(count)| count).sum::<Count>();
     let seat_count = total_seats.count();
 
@@ -172,7 +160,7 @@ pub fn allocate_per_surplus<const N: usize>(
     }
 }
 
-pub fn allocate<const N: usize>(total_seats: Seats, votes: [Votes; N], seats: &mut [Seats; N]) {
+pub fn allocate(total_seats: Seats, votes: Vec<Votes>, seats: &mut [Seats]) {
     if total_seats.count() >= 19 {
         allocate_per_average(total_seats, votes, seats);
     } else {
@@ -180,11 +168,7 @@ pub fn allocate<const N: usize>(total_seats: Seats, votes: [Votes; N], seats: &m
     }
 }
 
-pub fn allocate_national<const N: usize>(
-    mut total_seats: Seats,
-    votes: [Votes; N],
-    seats: &mut [Seats; N],
-) {
+pub fn allocate_national(mut total_seats: Seats, votes: Vec<Votes>, seats: &mut [Seats]) {
     let vote_count = votes.iter().map(|Votes(count)| count).sum::<Count>();
     let seat_count = total_seats.count();
 

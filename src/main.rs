@@ -2,7 +2,7 @@ use kiesraad_model::*;
 
 macro_rules! votes {
     ($($x: expr),* $(,)?) => {
-        [$(Votes($x),)*]
+        vec![$(Votes($x),)*]
     }
 }
 
@@ -15,7 +15,7 @@ fn print_seats(seats: impl Iterator<Item = Seats>) {
 }
 
 fn main() {
-    fn run_election<const N: usize>(target: Count, votes: [Votes; N]) {
+    fn run_election(target: Count, votes: Vec<Votes>) {
         println!(
             "running an election for {target} seats, parties: {votes:?}, using largest {}",
             if target >= 19 {
@@ -24,7 +24,7 @@ fn main() {
                 "surpluses"
             }
         );
-        let mut seats = std::array::from_fn(|_| Seats::unlimited());
+        let mut seats = vec![Seats::unlimited(); votes.len()];
         allocate(Seats::filled(target), votes, &mut seats);
         print_seats(seats.into_iter());
         println!("======");
@@ -38,9 +38,9 @@ fn main() {
     run_election(5, votes![19, 19, 19, 19, 15, 9, 9]);
     run_election(18, votes![100, 16, 6, 5, 5, 5, 5, 4]);
 
-    fn run_national_election<const N: usize>(votes: [Votes; N]) {
+    fn run_national_election(votes: Vec<Votes>) {
         println!("running an election for Tweede Kamer");
-        let mut seats = std::array::from_fn(|_| Seats::unlimited());
+        let mut seats = vec![Seats::unlimited(); votes.len()];
         allocate_national(Seats::filled(150), votes, &mut seats);
         print_seats(seats.into_iter());
         println!("======");
