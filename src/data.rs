@@ -76,8 +76,16 @@ impl Eq for Seats {}
 
 #[derive(Debug, Clone, Copy)]
 pub struct Fraction {
-    pub numerator: u64,
-    pub denominator: u64,
+    pub numerator: Count,
+    pub denominator: Count,
+}
+
+pub fn frac(numerator: Count, denominator: Count) -> Fraction {
+    assert_ne!(denominator, 0);
+    Fraction {
+        numerator,
+        denominator,
+    }
 }
 
 impl Ord for Fraction {

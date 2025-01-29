@@ -66,7 +66,7 @@ pub fn whole_seats_available(votes: &[Votes], seats: &[Seats], seats_awarded: Se
     let total_seats = seats_awarded.count() + seats.iter().map(|x| x.count()).sum::<Count>();
     let total_votes = votes.iter().map(|Votes(x)| x).sum::<Count>();
     iter::zip(votes, seats).any(|(Votes(cur_vote), cur_seat)| {
-        cur_vote * total_seats >= total_votes * (cur_seat.count() + 1)
+        frac(*cur_vote, cur_seat.count() + 1) >= frac(total_votes, total_seats)
     })
 }
 
@@ -112,12 +112,7 @@ pub fn allocate_per_average(mut total_seats: Seats, votes: Vec<Votes>, seats: &m
         &votes,
         seats,
         &mut total_seats,
-        |Votes(cur_vote), cur_seat| {
-            Some(Fraction {
-                numerator: cur_vote,
-                denominator: cur_seat.count() + 1,
-            })
-        },
+        |Votes(cur_vote), cur_seat| Some(frac(cur_vote, cur_seat.count() + 1)),
     );
 }
 
@@ -125,15 +120,18 @@ pub fn allocate_per_surplus(mut total_seats: Seats, votes: Vec<Votes>, seats: &m
     let vote_count = votes.iter().map(|Votes(count)| count).sum::<Count>();
     let seat_count = total_seats.count();
 
+    let has_surplus =
+        |cur_vote, cur_seat| frac(cur_vote, 1) >= frac(cur_seat * vote_count, seat_count);
+
     allocate_seats(
         &votes,
         seats,
         &mut total_seats,
         move |Votes(cur_vote), cur_seat| {
             let cur_seat = cur_seat.count();
-            (cur_vote * seat_count >= cur_seat * vote_count
-                && 4 * cur_vote * seat_count >= 3 * vote_count)
-                .then(|| cur_vote * seat_count - cur_seat * vote_count)
+            (has_surplus(cur_vote, cur_seat)
+                && frac(cur_vote, 1) >= frac(3 * vote_count, 4 * seat_count))
+            .then(|| cur_vote * seat_count - cur_seat * vote_count)
         },
     );
 
@@ -146,15 +144,12 @@ pub fn allocate_per_surplus(mut total_seats: Seats, votes: Vec<Votes>, seats: &m
             &mut total_seats,
             |Votes(cur_vote), cur_seat| {
                 let cur_seat = cur_seat.count();
-                if 4 * cur_vote * seat_count >= 3 * vote_count {
-                    cur_vote * seat_count >= (cur_seat - 1) * vote_count
+                if frac(cur_vote, 1) >= frac(3 * vote_count, 4 * seat_count) {
+                    has_surplus(cur_vote, cur_seat - 1)
                 } else {
-                    cur_vote * seat_count >= cur_seat * vote_count
+                    has_surplus(cur_vote, cur_seat)
                 }
-                .then_some(Fraction {
-                    numerator: cur_vote,
-                    denominator: cur_seat + 1,
-                })
+                .then_some(frac(cur_vote, cur_seat + 1))
             },
         );
     }
@@ -177,10 +172,8 @@ pub fn allocate_national(mut total_seats: Seats, votes: Vec<Votes>, seats: &mut 
         seats,
         &mut total_seats,
         |Votes(cur_vote), cur_seat| {
-            (cur_vote * seat_count >= vote_count).then_some(Fraction {
-                numerator: cur_vote,
-                denominator: cur_seat.count() + 1,
-            })
+            (frac(cur_vote, 1) >= frac(vote_count, seat_count))
+                .then_some(frac(cur_vote, cur_seat.count() + 1))
         },
     );
 }
