@@ -176,7 +176,12 @@ fn main() {
 
             let file_name = data_source.file_name().unwrap().to_string_lossy();
             if file_name.starts_with("uitslag_TK") || file_name.starts_with("uitslag_EP") {
-                allocate_national(Seats::filled(total_seats), votes, &mut seats);
+                match &file_name[10..14] {
+                    "1925" | "1929" | "1933" => {
+                        allocate_historical(Seats::filled(total_seats), votes, &mut seats)
+                    }
+                    _ => allocate_national(Seats::filled(total_seats), votes, &mut seats),
+                }
             } else {
                 allocate(Seats::filled(total_seats), votes, &mut seats);
             }

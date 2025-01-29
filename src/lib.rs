@@ -177,3 +177,46 @@ pub fn allocate_national(mut total_seats: Seats, votes: Vec<Votes>, seats: &mut 
         },
     );
 }
+
+pub fn allocate_historical(mut total_seats: Seats, votes: Vec<Votes>, seats: &mut [Seats]) {
+    let vote_count = votes.iter().map(|Votes(count)| count).sum::<Count>();
+    let seat_count = total_seats.count();
+
+    let has_surplus =
+        |cur_vote, cur_seat| frac(cur_vote, 1) >= frac(cur_seat * vote_count, seat_count);
+
+    allocate_seats(
+        &votes,
+        seats,
+        &mut total_seats,
+        move |Votes(cur_vote), cur_seat| {
+            let cur_seat = cur_seat.count();
+            // proposed by bongaerts in 1922 and adopted in law in 1925
+            (has_surplus(cur_vote, cur_seat)
+                && frac(cur_vote, cur_seat + 1) >= frac(3 * vote_count, 4 * seat_count))
+            .then(|| cur_vote * seat_count - cur_seat * vote_count)
+        },
+    );
+
+    if total_seats.count() > 0 {
+        #[cfg(feature = "chatty")]
+        eprintln!("continuing by averages");
+        allocate_seats(
+            &votes,
+            seats,
+            &mut total_seats,
+            //bongaerts in 1922 seems to have proposed this instead (straight saint-laguë method)
+            //|Votes(cur_vote), cur_seat| Some(frac(2*cur_vote, 2*cur_seat.count() + 1)),
+            |Votes(cur_vote), cur_seat| {
+                let cur_seat = cur_seat.count();
+                if cur_seat > 0 && frac(cur_vote, cur_seat) >= frac(3 * vote_count, 4 * seat_count)
+                {
+                    has_surplus(cur_vote, cur_seat - 1)
+                } else {
+                    has_surplus(cur_vote, cur_seat)
+                }
+                .then_some(frac(cur_vote, cur_seat + 1))
+            },
+        );
+    }
+}
