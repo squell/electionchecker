@@ -10,7 +10,13 @@ pub fn allocate_single_step<Quality: Ord, const N: usize>(
     criterion: impl Fn(Votes, Seats) -> Option<Quality>,
 ) -> Option<()> {
     let qualities = iter::zip(votes, seats.iter())
-        .map(|(votes, seats)| criterion(*votes, *seats))
+        .map(|(votes, seats)| {
+            if seats.has_candidates() {
+                criterion(*votes, *seats)
+            } else {
+                None
+            }
+        })
         .collect::<Vec<_>>();
 
     let max_quality = qualities.iter().max().unwrap().as_ref()?;
@@ -36,9 +42,13 @@ pub fn absolute_majority_check<const N: usize>(
 
     let mut correction = Seats::filled(1);
 
+    let absolute_majority = |count, total| 2 * count > total;
+
     if let Some((_, winner_seat)) =
         iter::zip(votes, seats.iter_mut()).find(|(Votes(cur_vote), cur_seat)| {
-            2 * cur_vote > total_votes && 2 * cur_seat.count() <= total_seats
+            cur_seat.has_candidates()
+                && absolute_majority(*cur_vote, total_votes)
+                && !absolute_majority(cur_seat.count(), total_seats)
         })
     {
         eprintln!("an absolute majority correction was performed");
