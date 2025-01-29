@@ -56,7 +56,7 @@ pub fn absolute_majority_check(votes: &[Votes], seats: &mut [Seats], prev_seats:
             .filter_map(|(x, y)| (*x > y && *x != winner_seat).then_some(x))
             .collect::<Vec<_>>();
 
-        let loser_seat = ballotted(last_winners, 1).pop().unwrap();
+        let loser_seat = ballotted(last_winners, 1).next().unwrap();
         correction.transfer(loser_seat);
     }
 }
