@@ -34,7 +34,7 @@ under certain conditions, see the file LICENSE
             }
         );
         let mut seats = vec![Seats::unlimited(); votes.len()];
-        allocate(Seats::filled(target), votes, &mut seats);
+        allocate(Seats::filled(target), &votes, &mut seats);
         print_seats(seats.into_iter());
         println!("======");
     }
@@ -50,7 +50,7 @@ under certain conditions, see the file LICENSE
     fn run_national_election(votes: Vec<Votes>) {
         println!("running an election for Tweede Kamer");
         let mut seats = vec![Seats::unlimited(); votes.len()];
-        allocate_national(Seats::filled(150), votes, &mut seats);
+        allocate_national(Seats::filled(150), &votes, &mut seats);
         print_seats(seats.into_iter());
         println!("======");
     }
@@ -88,13 +88,13 @@ under certain conditions, see the file LICENSE
     println!("a corner case in our national voting system");
     let votes = votes![33, 7];
     let mut seats = vec![Seats::limited(2), Seats::limited(13)];
-    allocate(Seats::filled(4), votes, &mut seats);
+    allocate(Seats::filled(4), &votes, &mut seats);
     print_seats(seats.into_iter());
 
     println!("a weird consequence of a little sentence in the law");
     let votes = votes![33, 7, 0];
     let mut seats = vec![Seats::limited(2), Seats::limited(12), Seats::limited(2)];
-    allocate(Seats::filled(4), votes, &mut seats);
+    allocate(Seats::filled(4), &votes, &mut seats);
     print_seats(seats.into_iter());
 }
 
@@ -147,7 +147,7 @@ fn main() {
         });
 
         for record in records {
-            let (id, votes, mut outcome) = record;
+            let (id, ref votes, mut outcome) = record;
             if data_source.file_name().unwrap() == "uitslag_GR20220316_Gemeente.csv"
                 && id == "Enkhuizen"
             {
@@ -159,7 +159,7 @@ fn main() {
             }
 
             #[cfg(feature = "rand-validate")]
-            let (votes, outcome): (Vec<_>, Vec<_>) = {
+            let (ref votes, outcome): (Vec<_>, Vec<_>) = {
                 use rand::seq::SliceRandom;
                 let mut mingle = std::iter::zip(votes, outcome).collect::<Vec<_>>();
                 mingle.shuffle(&mut rand::rng());

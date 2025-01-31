@@ -107,16 +107,16 @@ pub fn allocate_seats<Quality: Ord>(
     absolute_majority_check(votes, seats, last_winners);
 }
 
-pub fn allocate_per_average(mut total_seats: Seats, votes: Vec<Votes>, seats: &mut [Seats]) {
+pub fn allocate_per_average(mut total_seats: Seats, votes: &[Votes], seats: &mut [Seats]) {
     allocate_seats(
-        &votes,
+        votes,
         seats,
         &mut total_seats,
         |Votes(cur_vote), cur_seat| Some(frac(cur_vote, cur_seat.count() + 1)),
     );
 }
 
-pub fn allocate_per_surplus(mut total_seats: Seats, votes: Vec<Votes>, seats: &mut [Seats]) {
+pub fn allocate_per_surplus(mut total_seats: Seats, votes: &[Votes], seats: &mut [Seats]) {
     let vote_count = votes.iter().map(|Votes(count)| count).sum::<Count>();
     let seat_count = total_seats.count();
 
@@ -124,7 +124,7 @@ pub fn allocate_per_surplus(mut total_seats: Seats, votes: Vec<Votes>, seats: &m
         |cur_vote, cur_seat| frac(cur_vote, 1) > frac(cur_seat * vote_count, seat_count);
 
     allocate_seats(
-        &votes,
+        votes,
         seats,
         &mut total_seats,
         move |Votes(cur_vote), cur_seat| {
@@ -139,7 +139,7 @@ pub fn allocate_per_surplus(mut total_seats: Seats, votes: Vec<Votes>, seats: &m
         #[cfg(feature = "chatty")]
         eprintln!("continuing by averages");
         allocate_seats(
-            &votes,
+            votes,
             seats,
             &mut total_seats,
             |Votes(cur_vote), cur_seat| {
@@ -155,7 +155,7 @@ pub fn allocate_per_surplus(mut total_seats: Seats, votes: Vec<Votes>, seats: &m
     }
 }
 
-pub fn allocate(total_seats: Seats, votes: Vec<Votes>, seats: &mut [Seats]) {
+pub fn allocate(total_seats: Seats, votes: &[Votes], seats: &mut [Seats]) {
     if total_seats.count() >= 19 {
         allocate_per_average(total_seats, votes, seats);
     } else {
@@ -163,12 +163,12 @@ pub fn allocate(total_seats: Seats, votes: Vec<Votes>, seats: &mut [Seats]) {
     }
 }
 
-pub fn allocate_national(mut total_seats: Seats, votes: Vec<Votes>, seats: &mut [Seats]) {
+pub fn allocate_national(mut total_seats: Seats, votes: &[Votes], seats: &mut [Seats]) {
     let vote_count = votes.iter().map(|Votes(count)| count).sum::<Count>();
     let seat_count = total_seats.count();
 
     allocate_seats(
-        &votes,
+        votes,
         seats,
         &mut total_seats,
         |Votes(cur_vote), cur_seat| {
@@ -178,7 +178,7 @@ pub fn allocate_national(mut total_seats: Seats, votes: Vec<Votes>, seats: &mut 
     );
 }
 
-pub fn allocate_bongaerts(mut total_seats: Seats, votes: Vec<Votes>, seats: &mut [Seats]) {
+pub fn allocate_bongaerts(mut total_seats: Seats, votes: &[Votes], seats: &mut [Seats]) {
     let vote_count = votes.iter().map(|Votes(count)| count).sum::<Count>();
     let seat_count = total_seats.count();
 
@@ -186,7 +186,7 @@ pub fn allocate_bongaerts(mut total_seats: Seats, votes: Vec<Votes>, seats: &mut
         |cur_vote, cur_seat| frac(cur_vote, 1) >= frac(cur_seat * vote_count, seat_count);
 
     allocate_seats(
-        &votes,
+        votes,
         seats,
         &mut total_seats,
         move |Votes(cur_vote), cur_seat| {
@@ -202,7 +202,7 @@ pub fn allocate_bongaerts(mut total_seats: Seats, votes: Vec<Votes>, seats: &mut
         #[cfg(feature = "chatty")]
         eprintln!("continuing by averages");
         allocate_seats(
-            &votes,
+            votes,
             seats,
             &mut total_seats,
             //bongaerts in 1922 seems to have proposed this instead (straight saint-laguë method)
@@ -221,18 +221,18 @@ pub fn allocate_bongaerts(mut total_seats: Seats, votes: Vec<Votes>, seats: &mut
     }
 }
 
-pub fn allocate_1918(total_seats: Seats, votes: Vec<Votes>, seats: &mut [Seats]) {
+pub fn allocate_1918(total_seats: Seats, votes: &[Votes], seats: &mut [Seats]) {
     allocate_archaic(frac(1, 2), total_seats, votes, seats);
 }
 
-pub fn allocate_1922(total_seats: Seats, votes: Vec<Votes>, seats: &mut [Seats]) {
+pub fn allocate_1922(total_seats: Seats, votes: &[Votes], seats: &mut [Seats]) {
     allocate_archaic(frac(3, 4), total_seats, votes, seats);
 }
 
 pub fn allocate_archaic(
     mut threshold: Fraction,
     mut total_seats: Seats,
-    votes: Vec<Votes>,
+    votes: &[Votes],
     seats: &mut [Seats],
 ) {
     let vote_count = votes.iter().map(|Votes(count)| count).sum::<Count>();
@@ -251,7 +251,7 @@ pub fn allocate_archaic(
                 eprintln!("entering second round of surplus apportionment");
             }
             allocate_seats(
-                &votes,
+                votes,
                 seats,
                 &mut total_seats,
                 move |Votes(cur_vote), cur_seat| {
