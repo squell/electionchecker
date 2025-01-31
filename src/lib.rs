@@ -178,7 +178,7 @@ pub fn allocate_national(mut total_seats: Seats, votes: Vec<Votes>, seats: &mut 
     );
 }
 
-pub fn allocate_historical(mut total_seats: Seats, votes: Vec<Votes>, seats: &mut [Seats]) {
+pub fn allocate_bongaerts(mut total_seats: Seats, votes: Vec<Votes>, seats: &mut [Seats]) {
     let vote_count = votes.iter().map(|Votes(count)| count).sum::<Count>();
     let seat_count = total_seats.count();
 
@@ -219,4 +219,52 @@ pub fn allocate_historical(mut total_seats: Seats, votes: Vec<Votes>, seats: &mu
             },
         );
     }
+}
+
+pub fn allocate_1918(total_seats: Seats, votes: Vec<Votes>, seats: &mut [Seats]) {
+    allocate_archaic(frac(1, 2), total_seats, votes, seats);
+}
+
+pub fn allocate_1922(total_seats: Seats, votes: Vec<Votes>, seats: &mut [Seats]) {
+    allocate_archaic(frac(3, 4), total_seats, votes, seats);
+}
+
+pub fn allocate_archaic(
+    mut threshold: Fraction,
+    mut total_seats: Seats,
+    votes: Vec<Votes>,
+    seats: &mut [Seats],
+) {
+    let vote_count = votes.iter().map(|Votes(count)| count).sum::<Count>();
+    let seat_count = total_seats.count();
+
+    threshold.numerator *= vote_count;
+    threshold.denominator *= seat_count;
+
+    let has_surplus =
+        |cur_vote, cur_seat| frac(cur_vote, 1) >= frac(cur_seat * vote_count, seat_count);
+
+    let mut round = |num, meet_threshold| {
+        if total_seats.count() > 0 {
+            #[cfg(feature = "chatty")]
+            if num > 0 {
+                eprintln!("entering second round of surplus apportionment");
+            }
+            allocate_seats(
+                &votes,
+                seats,
+                &mut total_seats,
+                move |Votes(cur_vote), cur_seat| {
+                    (((frac(cur_vote, 1) >= threshold) == meet_threshold)
+                        && has_surplus(cur_vote, cur_seat.count() - num))
+                    .then(|| cur_vote * seat_count - (cur_seat.count() - num) * vote_count)
+                },
+            );
+        }
+    };
+
+    // this is my best interpretation from a 1917 law
+    round(0, true);
+    round(1, true);
+    round(0, false);
 }
