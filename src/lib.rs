@@ -121,7 +121,7 @@ pub fn allocate_per_surplus(mut total_seats: Seats, votes: Vec<Votes>, seats: &m
     let seat_count = total_seats.count();
 
     let has_surplus =
-        |cur_vote, cur_seat| frac(cur_vote, 1) >= frac(cur_seat * vote_count, seat_count);
+        |cur_vote, cur_seat| frac(cur_vote, 1) > frac(cur_seat * vote_count, seat_count);
 
     allocate_seats(
         &votes,
