@@ -100,6 +100,14 @@ under certain conditions, see the file LICENSE
 
 #[cfg(feature = "validate")]
 fn main() {
+    println!(
+        "Copyright (C) 2025  Marc Schoolderman
+This program comes with ABSOLUTELY NO WARRANTY
+This is free software, and you are welcome to redistribute it
+under certain conditions, see the file LICENSE
+"
+    );
+
     if std::env::args().len() <= 1 {
         eprintln!("usage: validate <files>");
         return;
@@ -116,38 +124,36 @@ fn main() {
             .collect::<Result<Vec<_>, _>>()
             .unwrap();
 
-        let ignored = [
-            "AantalBlancoStemmen",
-            "AantalGeldigeStemmen",
-            "AantalOngeldigeStemmen",
-            "Kiesgerechtigden",
-            "Opkomst",
-        ];
+        let ignored = |s: &str| {
+            [
+                "AantalBlancoStemmen",
+                "AantalGeldigeStemmen",
+                "AantalOngeldigeStemmen",
+                "Kiesgerechtigden",
+                "Opkomst",
+            ]
+            .contains(&s)
+        };
 
-        let records = records.chunk_by(|x, y| x.get(1) == y.get(1)).map(|record| {
+        let records = records.chunk_by(|x, y| x[1] == y[1]).map(|record| {
             (
-                record[0].get(0).unwrap(),
+                &record[0][0],
                 record
                     .iter()
                     .filter_map(|x| {
-                        (!ignored.contains(&x.get(2).unwrap())).then_some(Votes(
-                            x.get(4).unwrap().parse::<Count>().unwrap_or_default(),
-                        ))
+                        (!ignored(&x[2])).then_some(Votes(x[4].parse().unwrap_or_default()))
                     })
                     .collect::<Vec<_>>(),
                 record
                     .iter()
                     .filter_map(|x| {
-                        (!ignored.contains(&x.get(2).unwrap())).then_some(Seats::filled(
-                            x.get(5).unwrap().parse::<Count>().unwrap_or_default(),
-                        ))
+                        (!ignored(&x[2])).then_some(Seats::filled(x[5].parse().unwrap_or_default()))
                     })
                     .collect::<Vec<_>>(),
             )
         });
 
-        for record in records {
-            let (id, ref votes, mut outcome) = record;
+        for (id, ref votes, mut outcome) in records {
             if data_source.file_name().unwrap() == "uitslag_GR20220316_Gemeente.csv"
                 && id == "Enkhuizen"
             {

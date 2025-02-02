@@ -3,6 +3,11 @@ mod data;
 pub use data::*;
 use std::iter;
 
+/// This performs one step in an apportionment algorithm, allocating seats based on a
+/// "criterion" for how 'worthy' a certain party in the `seats` list is to receive the seats.
+/// It is a **requirement** that the `criterion` algorith will always rank a party that is
+/// eligible for at least one more "eat" above a party that doesn't.
+/// The `criterion` can signal that a party isn't eligible for seats by returning `None`.
 pub fn allocate_single_step<Quality: Ord>(
     votes: &[Votes],
     seats: &mut [Seats],
@@ -32,6 +37,11 @@ pub fn allocate_single_step<Quality: Ord>(
     Some(())
 }
 
+/// This performs the correction stipulated in the Dutch law that a party that gets an
+/// absolute majority in votes also gets an absolute majority in seats.
+/// It is **required** that `prev_seats` contains the seat allocation of the penultimate
+/// step in the seat allocation algorithm (since that will determine who loses a seat).
+/// This step is criterion-agnostic.
 pub fn absolute_majority_check(votes: &[Votes], seats: &mut [Seats], prev_seats: Vec<Seats>) {
     let total_votes = votes.iter().map(|Votes(count)| count).sum::<Count>();
     let total_seats = seats.iter().map(|count| count.count()).sum::<Count>();
@@ -78,6 +88,9 @@ fn debug_results<'a>(seats: impl Iterator<Item = &'a Seats>) {
     eprintln!();
 }
 
+/// Perform a seat apportionment based on the given method.
+/// It is a **requirement** that the `criterion` algorith will always rank a party that is
+/// eligible for at least one more "eat" above a party that doesn't.
 pub fn allocate_seats<Quality: Ord>(
     votes: &[Votes],
     seats: &mut [Seats],
@@ -107,6 +120,8 @@ pub fn allocate_seats<Quality: Ord>(
     absolute_majority_check(votes, seats, last_winners);
 }
 
+/// Perform a seat apportionment based on the D'Hondt method.
+/// This system is currently used in the Netherlands for regional councils least 19 seats or more.
 pub fn allocate_per_average(mut total_seats: Seats, votes: &[Votes], seats: &mut [Seats]) {
     allocate_seats(
         votes,
@@ -116,6 +131,11 @@ pub fn allocate_per_average(mut total_seats: Seats, votes: &[Votes], seats: &mut
     );
 }
 
+/// Perform a seat apportionment based on the Hamilton method, with a
+/// voting threshold of 75% of a whole seat, and parties receiving a maximum of one extra seat.
+/// If seats remain after that, apportion the remainder of seats using D'Hondt, with
+/// parties again only receiving a maximum of one additional seat.
+/// This system is currently used in the Netherlands for bodies of less than 19 seats.
 pub fn allocate_per_surplus(mut total_seats: Seats, votes: &[Votes], seats: &mut [Seats]) {
     let vote_count = votes.iter().map(|Votes(count)| count).sum::<Count>();
     let seat_count = total_seats.count();
@@ -155,6 +175,8 @@ pub fn allocate_per_surplus(mut total_seats: Seats, votes: &[Votes], seats: &mut
     }
 }
 
+/// Perform a seat apportionment, selecting D'Hondt or modified-Hamilton
+/// based on the number of seats, as Dutch law does for bodies.
 pub fn allocate(total_seats: Seats, votes: &[Votes], seats: &mut [Seats]) {
     if total_seats.count() >= 19 {
         allocate_per_average(total_seats, votes, seats);
@@ -163,6 +185,8 @@ pub fn allocate(total_seats: Seats, votes: &[Votes], seats: &mut [Seats]) {
     }
 }
 
+/// Perform a seat apportionment using D'Hondt's method and a voting threshold
+/// of one whole seat, as used in Dutch national elections (parliament and European Parliament)
 pub fn allocate_national(mut total_seats: Seats, votes: &[Votes], seats: &mut [Seats]) {
     let vote_count = votes.iter().map(|Votes(count)| count).sum::<Count>();
     let seat_count = total_seats.count();
@@ -178,6 +202,11 @@ pub fn allocate_national(mut total_seats: Seats, votes: &[Votes], seats: &mut [S
     );
 }
 
+/// Perform a seat apportionment using the method that seems to have been in place from 1925 until
+/// the introduction of D'Hondt method, at least for the national election. It is the single-seat
+/// Hamilton method. And an extra requirement that a party always needs to have 75% of a whole seat
+/// *on average*, which acts like a quite ingenious voting threshold.
+/// If seats remain, they are then apportioned by the "single-additional seat D'Hondt" method.
 pub fn allocate_bongaerts(mut total_seats: Seats, votes: &[Votes], seats: &mut [Seats]) {
     let vote_count = votes.iter().map(|Votes(count)| count).sum::<Count>();
     let seat_count = total_seats.count();
@@ -221,14 +250,28 @@ pub fn allocate_bongaerts(mut total_seats: Seats, votes: &[Votes], seats: &mut [
     }
 }
 
+/// The seat apportionment used in the very first election with proportional representation.
 pub fn allocate_1918(total_seats: Seats, votes: &[Votes], seats: &mut [Seats]) {
     allocate_archaic(frac(1, 2), total_seats, votes, seats);
 }
 
+/// The seat apportionment used in the strange 1922 election.
+/// This has an increased voting threshold of 75% instead of the original 50%.
 pub fn allocate_1922(total_seats: Seats, votes: &[Votes], seats: &mut [Seats]) {
     allocate_archaic(frac(3, 4), total_seats, votes, seats);
 }
 
+/// Perform a seat apportionment using the method that seems to have been selected around 1916
+/// For the big introduction of proportional representation. It is essentially the Hamilton method
+/// with a voting threshold (for two rounds, after it will weirdly only take into consideration
+/// parties that *do not meet* the voting threshold). This gives a tremendous boost for small parties
+/// as rest seats can are apportioned rather randomly after round 1.
+///
+/// The second and third rounds don't seem to have ever been needed---a second round would have
+/// been needed in 1922, except that two major parties prevented this by hacking the electoral
+/// system and artificially making themselves smaller by splitting into multiple lists.
+///
+/// This silly system was abandoned in 1922.
 pub fn allocate_archaic(
     mut threshold: Fraction,
     mut total_seats: Seats,
