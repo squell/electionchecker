@@ -81,9 +81,13 @@ pub fn whole_seats_available(votes: &[Votes], seats: &[Seats], seats_awarded: Se
 }
 
 #[cfg(feature = "chatty")]
-fn debug_results<'a>(seats: impl Iterator<Item = &'a Seats>) {
-    for seat in seats {
-        eprint!("{seat}, ");
+fn debug_results(mut things: impl Iterator<Item: std::fmt::Display>) {
+    let Some(first) = things.next() else {
+        return;
+    };
+    eprint!("{first}");
+    for thing in things {
+        eprint!(", {thing}");
     }
     eprintln!();
 }
@@ -104,6 +108,13 @@ pub fn allocate_seats<Quality: Ord>(
         #[cfg(feature = "chatty")]
         if !(whole_seats_available(votes, seats, *available_seats) || printed) {
             printed = true;
+            eprintln!("whole seats:");
+            debug_results(
+                seats
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(n, x)| (x.count() > 0).then_some(format!("{n}: {x}"))),
+            );
             eprintln!("rest seats");
         }
 
@@ -114,7 +125,19 @@ pub fn allocate_seats<Quality: Ord>(
         }
 
         #[cfg(feature = "chatty")]
-        debug_results(seats.iter());
+        if cfg!(feature = "succinct-chatty") {
+            if printed {
+                debug_results(
+                    seats
+                        .iter()
+                        .zip(last_winners.iter())
+                        .enumerate()
+                        .filter_map(|(n, (x, y))| (x != y).then_some(format!("rest seat for {n}"))),
+                );
+            }
+        } else {
+            debug_results(seats.iter());
+        }
     }
 
     absolute_majority_check(votes, seats, last_winners);
