@@ -5,7 +5,7 @@ use std::iter;
 
 /// This performs one step in an apportionment algorithm, allocating seats based on a
 /// "criterion" for how 'worthy' a certain party in the `seats` list is to receive the seats.
-/// It is a **requirement** that the `criterion` algorith will always rank a party that is
+/// It is a **requirement** that the `criterion` algorithm will always rank a party that is
 /// eligible for at least one more "eat" above a party that doesn't.
 /// The `criterion` can signal that a party isn't eligible for seats by returning `None`.
 pub fn allocate_single_step<Quality: Ord>(
@@ -30,7 +30,7 @@ pub fn allocate_single_step<Quality: Ord>(
         .filter_map(|(quality, seat)| (quality.as_ref() == Some(max_quality)).then_some(seat))
         .collect::<Vec<_>>();
 
-    for seat in ballotted(awarded, available_seats.count()) {
+    for seat in balloted(awarded, available_seats.count()) {
         seat.transfer(available_seats);
     }
 
@@ -66,7 +66,7 @@ pub fn absolute_majority_check(votes: &[Votes], seats: &mut [Seats], prev_seats:
             .filter_map(|(x, y)| (*x > y && *x != winner_seat).then_some(x))
             .collect::<Vec<_>>();
 
-        let loser_seat = ballotted(last_winners, 1).next().unwrap();
+        let loser_seat = balloted(last_winners, 1).next().unwrap();
         correction.transfer(loser_seat);
     }
 }
@@ -93,7 +93,7 @@ fn debug_results(mut things: impl Iterator<Item: std::fmt::Display>) {
 }
 
 /// Perform a seat apportionment based on the given method.
-/// It is a **requirement** that the `criterion` algorith will always rank a party that is
+/// It is a **requirement** that the `criterion` algorithm will always rank a party that is
 /// eligible for at least one more "eat" above a party that doesn't.
 pub fn allocate_seats<Quality: Ord>(
     votes: &[Votes],
