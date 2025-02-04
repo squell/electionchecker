@@ -121,7 +121,7 @@ impl std::fmt::Display for Fraction {
 // over lists that have received 0 votes than the 'true ballot' approach; but
 // otherwise is identical to it
 #[cfg(not(feature = "force-ballots"))]
-pub fn ballotted<T>(mut vec: Vec<T>, limit: Count) -> impl Iterator<Item = T> {
+pub fn balloted<T>(mut vec: Vec<T>, limit: Count) -> impl Iterator<Item = T> {
     use rand::rng;
     use rand::seq::SliceRandom;
 
@@ -138,7 +138,7 @@ pub fn ballotted<T>(mut vec: Vec<T>, limit: Count) -> impl Iterator<Item = T> {
 }
 
 #[cfg(feature = "force-ballots")]
-pub fn ballotted<T>(vec: Vec<T>, _limit: Count) -> impl Iterator<Item = T> {
+pub fn balloted<T>(vec: Vec<T>, _limit: Count) -> impl Iterator<Item = T> {
     use rand::rng;
     use rand::seq::IteratorRandom;
 
