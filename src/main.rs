@@ -1,27 +1,94 @@
+#[cfg(feature = "validate")]
+use std::path::PathBuf;
+
+use clap::{Args, Parser, Subcommand};
 use kiesraad_model::*;
 
-#[cfg(not(feature = "validate"))]
-fn main() {
-    macro_rules! votes {
-	($($x: expr),* $(,)?) => {
-	    vec![$(Votes($x),)*]
-	}
-    }
+#[derive(Parser)]
+#[command(version, about, long_about = None)]
+struct Cli {
+    #[command(subcommand)]
+    command: Command,
+}
 
+#[derive(Subcommand)]
+enum Command {
+    /// Run some example elections
+    Demo,
+    /// Run an election with the provided number of seats and votes
+    Allocate(AllocateArgs),
+    /// Validate election results from CSV file(s)
+    #[cfg(feature = "validate")]
+    Validate { files: Vec<PathBuf> },
+}
+
+#[derive(Args)]
+struct AllocateArgs {
+    /// Total number of seats to allocate
+    seats: u64,
+    /// Number of votes per party
+    #[clap(num_args = 1.., value_delimiter=',')]
+    votes: Vec<u64>,
+    /// Use a voting threshold of one whole seat, as used in Dutch national elections
+    #[arg(short, long)]
+    national: bool,
+}
+
+fn main() {
     println!(
-        "kiesraad-model  Copyright (C) 2025  Marc Schoolderman
+        "Copyright (C) 2025  Marc Schoolderman
 This program comes with ABSOLUTELY NO WARRANTY
 This is free software, and you are welcome to redistribute it
 under certain conditions, see the file LICENSE
 "
     );
 
-    fn print_seats(seats: impl Iterator<Item = Seats>) {
-        print!("result = ");
-        for seat in seats {
-            print!("{seat}, ");
+    let cli = Cli::parse();
+
+    match &cli.command {
+        Command::Demo => demo(),
+        Command::Allocate(args) => {
+            let votes = args.votes.iter().map(|v| Votes(*v)).collect::<Vec<Votes>>();
+            println!(
+                "running an election for {} seats, parties: {votes:?}, using largest {}",
+                args.seats,
+                if args.national {
+                    "averages (with voting threshold of one whole seat)"
+                } else if args.seats >= 19 {
+                    "averages"
+                } else {
+                    "surpluses"
+                }
+            );
+            let mut seats = vec![Seats::unlimited(); votes.len()];
+            if args.national {
+                allocate_national(Seats::filled(args.seats), &votes, &mut seats);
+            } else {
+                allocate(Seats::filled(args.seats), &votes, &mut seats);
+            }
+            print_seats(seats.into_iter());
         }
-        println!();
+        #[cfg(feature = "validate")]
+        Command::Validate { files } => {
+            println!("Validating {} files...", files.len());
+            validate(files);
+        }
+    }
+}
+
+fn print_seats(seats: impl Iterator<Item = Seats>) {
+    print!("result = ");
+    for seat in seats {
+        print!("{seat}, ");
+    }
+    println!();
+}
+
+fn demo() {
+    macro_rules! votes {
+    ($($x: expr),* $(,)?) => {
+        vec![$(Votes($x),)*]
+    }
     }
 
     fn run_election(target: Count, votes: Vec<Votes>) {
@@ -99,22 +166,8 @@ under certain conditions, see the file LICENSE
 }
 
 #[cfg(feature = "validate")]
-fn main() {
-    println!(
-        "Copyright (C) 2025  Marc Schoolderman
-This program comes with ABSOLUTELY NO WARRANTY
-This is free software, and you are welcome to redistribute it
-under certain conditions, see the file LICENSE
-"
-    );
-
-    if std::env::args().len() <= 1 {
-        eprintln!("usage: validate <files>");
-        return;
-    }
-
-    for data_source in std::env::args().skip(1) {
-        let data_source = std::path::Path::new(&data_source);
+fn validate(data_sources: &Vec<PathBuf>) {
+    for data_source in data_sources {
         let records = csv::ReaderBuilder::new()
             .has_headers(true)
             .delimiter(b';')
