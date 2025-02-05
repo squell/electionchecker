@@ -196,7 +196,8 @@ pub fn allocate_per_surplus(mut total_seats: Seats, votes: &[Votes], seats: &mut
             let cur_seat = cur_seat.count();
             (has_surplus(cur_vote, cur_seat)
                 && frac(cur_vote, 1) >= frac(3 * vote_count, 4 * seat_count))
-            .then(|| cur_vote * seat_count - cur_seat * vote_count)
+            //            .then(|| cur_vote * seat_count - cur_seat * vote_count)
+            .then(|| cur_vote - cur_seat * vote_count / seat_count)
         },
     );
 
