@@ -226,7 +226,7 @@ fn validate(data_sources: &Vec<PathBuf>) {
             };
 
             let total_seats = outcome.iter().map(|x| x.count()).sum();
-            println!("checking {}:{id}", data_source.display());
+            print!("checking {}:{id} ", data_source.display());
 
             let mut seats = candidates;
 
@@ -248,6 +248,18 @@ fn validate(data_sources: &Vec<PathBuf>) {
                 seats.iter().map(|x| x.count()).collect::<Vec<_>>(),
                 outcome.iter().map(|x| x.count()).collect::<Vec<_>>()
             );
+
+            let total_votes: Count = votes.iter().map(|v| v.0).sum();
+            let ratios = votes.into_iter().zip(seats).map(|(Votes(v), s)| {
+                (
+                    *v as f64 / total_votes as f64,
+                    s.count() as f64 / total_seats as f64,
+                )
+            });
+            let gallagher =
+                (ratios.clone().map(|(v, s)| (v - s) * (v - s)).sum::<f64>() / 2.0).sqrt();
+            let saint_laguë = ratios.map(|(v, s)| (v - s) * (v - s) / v).sum::<f64>();
+            println!("[{gallagher:.4}] [{saint_laguë:.4}]");
         }
     }
 }
