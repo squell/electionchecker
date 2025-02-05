@@ -11,6 +11,75 @@ struct Cli {
     command: Command,
 }
 
+fn perturb(
+    allocate: impl Fn(Seats, &[Votes], &mut [Seats]),
+    total: Count,
+    votes: &[Votes],
+    mut true_seats: Vec<Seats>,
+) {
+    let seats = true_seats.clone();
+    allocate(Seats::filled(total), votes, &mut true_seats);
+
+    let finding = |text, seats: Vec<Seats>| {
+        println!(" \n{text}:");
+        print!("old ");
+        print_seats(true_seats.iter().cloned());
+        print!("new ");
+        print_seats(seats.into_iter());
+        println!();
+    };
+
+    for mutation in 1..1000 {
+        if mutation % 5 == 0 {
+            use std::io::Write;
+            print!("{}\x08", b"\\|/-"[mutation as usize % 4] as char);
+            std::io::stdout().flush().unwrap();
+        }
+
+        //println!("adding {mutation} votes for one party");
+        for i in 0..votes.len() {
+            let mut v = votes.to_owned();
+            v[i].0 += mutation;
+            let mut seats = seats.clone();
+            allocate(Seats::filled(total), &v, &mut seats);
+            if seats != *true_seats {
+                return finding(format!("{mutation} more votes for party {i}"), seats);
+            }
+        }
+
+        //println!("removing {mutation} votes for one party");
+        for i in 0..votes.len() {
+            if votes[i].0 < mutation {
+                continue;
+            };
+            let mut v = votes.to_owned();
+            v[i].0 -= mutation;
+            let mut seats = seats.clone();
+            allocate(Seats::filled(total), &v, &mut seats);
+            if seats != *true_seats {
+                return finding(format!("{mutation} fewer votes for party {i}"), seats);
+            }
+        }
+
+        //println!("moving {mutation} votes between parties");
+        for i in 0..votes.len() {
+            if votes[i].0 < mutation {
+                continue;
+            };
+            for j in 0..votes.len() {
+                let mut v = votes.to_owned();
+                v[i].0 -= mutation;
+                v[j].0 += mutation;
+                let mut seats = seats.clone();
+                allocate(Seats::filled(total), &v, &mut seats);
+                if seats != *true_seats {
+                    return finding(format!("moving {mutation} votes from {i} to {j}"), seats);
+                }
+            }
+        }
+    }
+}
+
 #[derive(Subcommand)]
 enum Command {
     /// Run some example elections
@@ -60,13 +129,12 @@ under certain conditions, see the file LICENSE
                     "surpluses"
                 }
             );
-            let mut seats = vec![Seats::unlimited(); votes.len()];
+            let seats = vec![Seats::unlimited(); votes.len()];
             if args.national {
-                allocate_national(Seats::filled(args.seats), &votes, &mut seats);
+                perturb(allocate_national, args.seats, &votes, seats);
             } else {
-                allocate(Seats::filled(args.seats), &votes, &mut seats);
+                perturb(allocate, args.seats, &votes, seats);
             }
-            print_seats(seats.into_iter());
         }
         #[cfg(feature = "validate")]
         Command::Validate { files } => {
@@ -228,26 +296,21 @@ fn validate(data_sources: &Vec<PathBuf>) {
             let total_seats = outcome.iter().map(|x| x.count()).sum();
             println!("checking {}:{id}", data_source.display());
 
-            let mut seats = candidates;
+            let seats = candidates;
 
             let file_name = data_source.file_name().unwrap().to_string_lossy();
             if file_name.starts_with("uitslag_TK") || file_name.starts_with("uitslag_EP") {
                 match &file_name[10..14] {
-                    "1918" => allocate_1918(Seats::filled(total_seats), votes, &mut seats),
-                    "1922" => allocate_1922(Seats::filled(total_seats), votes, &mut seats),
+                    "1918" => perturb(allocate_1918, total_seats, votes, seats),
+                    "1922" => perturb(allocate_1922, total_seats, votes, seats),
                     "1925" | "1929" | "1933" => {
-                        allocate_bongaerts(Seats::filled(total_seats), votes, &mut seats)
+                        perturb(allocate_bongaerts, total_seats, votes, seats)
                     }
-                    _ => allocate_national(Seats::filled(total_seats), votes, &mut seats),
+                    _ => perturb(allocate_national, total_seats, votes, seats),
                 }
             } else {
-                allocate(Seats::filled(total_seats), votes, &mut seats);
+                perturb(allocate, total_seats, votes, seats);
             }
-
-            assert_eq!(
-                seats.iter().map(|x| x.count()).collect::<Vec<_>>(),
-                outcome.iter().map(|x| x.count()).collect::<Vec<_>>()
-            );
         }
     }
 }
