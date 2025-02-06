@@ -163,10 +163,6 @@ pub fn allocate_per_surplus(mut total_seats: Seats, votes: &[Votes], seats: &mut
     let vote_count = votes.iter().map(|Votes(count)| count).sum::<Count>();
     let seat_count = total_seats.count();
 
-    #[cfg(feature = "strict-surplus-check")]
-    let has_surplus =
-        |cur_vote, cur_seat| frac(cur_vote, 1) > frac(cur_seat * vote_count, seat_count);
-    #[cfg(not(feature = "strict-surplus-check"))]
     let has_surplus =
         |cur_vote, cur_seat| frac(cur_vote, 1) >= frac(cur_seat * vote_count, seat_count);
 
@@ -238,10 +234,6 @@ pub fn allocate_bongaerts(mut total_seats: Seats, votes: &[Votes], seats: &mut [
     let vote_count = votes.iter().map(|Votes(count)| count).sum::<Count>();
     let seat_count = total_seats.count();
 
-    #[cfg(feature = "strict-surplus-check")]
-    let has_surplus =
-        |cur_vote, cur_seat| frac(cur_vote, 1) > frac(cur_seat * vote_count, seat_count);
-    #[cfg(not(feature = "strict-surplus-check"))]
     let has_surplus =
         |cur_vote, cur_seat| frac(cur_vote, 1) >= frac(cur_seat * vote_count, seat_count);
 
@@ -315,10 +307,6 @@ pub fn allocate_archaic(
     threshold.numerator *= vote_count;
     threshold.denominator *= seat_count;
 
-    #[cfg(feature = "strict-surplus-check")]
-    let has_surplus =
-        |cur_vote, cur_seat| frac(cur_vote, 1) > frac(cur_seat * vote_count, seat_count);
-    #[cfg(not(feature = "strict-surplus-check"))]
     let has_surplus =
         |cur_vote, cur_seat| frac(cur_vote, 1) >= frac(cur_seat * vote_count, seat_count);
 
