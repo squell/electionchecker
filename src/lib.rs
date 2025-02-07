@@ -115,7 +115,7 @@ pub fn allocate_seats<Quality: Ord>(
                     .enumerate()
                     .filter_map(|(n, x)| (x.count() > 0).then_some(format!("{n}: {x}"))),
             );
-            eprintln!("rest seats");
+            eprintln!("rest seats ({})", available_seats.count());
         }
 
         last_winners.copy_from_slice(seats);
@@ -143,9 +143,28 @@ pub fn allocate_seats<Quality: Ord>(
     absolute_majority_check(votes, seats, last_winners);
 }
 
+/// Perform a seat apportionment, only handing out full seats. This is not necessary but has the
+/// benefit that it is criterion-agnostic and faster than an explicit loopp.
+#[allow(unused)]
+pub fn allocate_whole_seats(votes: &[Votes], seats: &mut [Seats], available_seats: &mut Seats) {
+    let vote_count = votes.iter().map(|Votes(count)| count).sum::<Count>();
+    let seat_count = available_seats.count();
+
+    for (Votes(v), seat) in iter::zip(votes.iter(), seats.iter_mut()) {
+        for _ in 0..v * seat_count / vote_count {
+            if seat.count() < seat.limit {
+                seat.transfer(available_seats)
+            }
+        }
+    }
+}
+
 /// Perform a seat apportionment based on the D'Hondt method.
 /// This system is currently used in the Netherlands for regional councils least 19 seats or more.
 pub fn allocate_per_average(mut total_seats: Seats, votes: &[Votes], seats: &mut [Seats]) {
+    #[cfg(feature = "whole-seat-opt")]
+    allocate_whole_seats(votes, seats, &mut total_seats);
+
     allocate_seats(
         votes,
         seats,
@@ -165,6 +184,9 @@ pub fn allocate_per_surplus(mut total_seats: Seats, votes: &[Votes], seats: &mut
 
     let has_surplus =
         |cur_vote, cur_seat| frac(cur_vote, 1) >= frac(cur_seat * vote_count, seat_count);
+
+    #[cfg(feature = "whole-seat-opt")]
+    allocate_whole_seats(votes, seats, &mut total_seats);
 
     allocate_seats(
         votes,
@@ -214,6 +236,9 @@ pub fn allocate_national(mut total_seats: Seats, votes: &[Votes], seats: &mut [S
     let vote_count = votes.iter().map(|Votes(count)| count).sum::<Count>();
     let seat_count = total_seats.count();
 
+    #[cfg(feature = "whole-seat-opt")]
+    allocate_whole_seats(votes, seats, &mut total_seats);
+
     allocate_seats(
         votes,
         seats,
@@ -236,6 +261,9 @@ pub fn allocate_bongaerts(mut total_seats: Seats, votes: &[Votes], seats: &mut [
 
     let has_surplus =
         |cur_vote, cur_seat| frac(cur_vote, 1) >= frac(cur_seat * vote_count, seat_count);
+
+    #[cfg(feature = "whole-seat-opt")]
+    allocate_whole_seats(votes, seats, &mut total_seats);
 
     allocate_seats(
         votes,
@@ -309,6 +337,9 @@ pub fn allocate_archaic(
 
     let has_surplus =
         |cur_vote, cur_seat| frac(cur_vote, 1) >= frac(cur_seat * vote_count, seat_count);
+
+    #[cfg(feature = "whole-seat-opt")]
+    allocate_whole_seats(votes, seats, &mut total_seats);
 
     let mut round = |num, meet_threshold| {
         if total_seats.count() > 0 {
