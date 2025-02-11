@@ -203,20 +203,20 @@ fn validate(data_sources: &Vec<PathBuf>) {
                         (!ignored(&x[2])).then_some(Seats::filled(x[5].parse().unwrap_or_default()))
                     })
                     .collect::<Vec<_>>(),
+                record
+                    .iter()
+                    .filter_map(|x| {
+                        (!ignored(&x[2])).then_some(
+                            x[6].parse()
+                                .map(Seats::limited)
+                                .unwrap_or(Seats::unlimited()),
+                        )
+                    })
+                    .collect::<Vec<_>>(),
             )
         });
 
-        for (id, ref votes, mut outcome) in records {
-            if data_source.file_name().unwrap() == "uitslag_GR20220316_Gemeente.csv"
-                && id == "Enkhuizen"
-            {
-                // this party only had one candidate in 2022
-                outcome[3].limit = 1;
-            } else if data_source.file_name().unwrap() == "uitslag_TK19480707_Nederland.csv" {
-                // there is a "Overig" party here
-                outcome[7].limit = 0;
-            }
-
+        for (id, ref votes, outcome, candidates) in records {
             #[cfg(feature = "rand-validate")]
             let (ref votes, outcome): (Vec<_>, Vec<_>) = {
                 use rand::seq::SliceRandom;
@@ -228,10 +228,7 @@ fn validate(data_sources: &Vec<PathBuf>) {
             let total_seats = outcome.iter().map(|x| x.count()).sum();
             println!("checking {}:{id}", data_source.display());
 
-            let mut seats = outcome
-                .iter()
-                .map(|x| Seats::limited(x.limit))
-                .collect::<Vec<_>>();
+            let mut seats = candidates;
 
             let file_name = data_source.file_name().unwrap().to_string_lossy();
             if file_name.starts_with("uitslag_TK") || file_name.starts_with("uitslag_EP") {
