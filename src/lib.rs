@@ -218,6 +218,13 @@ pub fn allocate_per_surplus(mut total_seats: Seats, votes: &[Votes], seats: &mut
             },
         );
     }
+
+    #[cfg(not(feature = "lawful"))]
+    if total_seats.count() > 0 {
+        #[cfg(feature = "chatty")]
+        eprintln!("continuing by unrestricted averages");
+        allocate_per_average(total_seats, votes, seats);
+    }
 }
 
 /// Perform a seat apportionment, selecting D'Hondt or modified-Hamilton
