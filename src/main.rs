@@ -27,8 +27,13 @@ struct AllocateArgs {
     /// Total number of seats to allocate
     seats: u64,
     /// Number of votes per party
+    #[arg(short, long)]
     #[clap(num_args = 1.., value_delimiter=',')]
     votes: Vec<u64>,
+    /// Number of candidates per party
+    #[arg(short, long, default_value=None)]
+    #[clap(num_args = 1.., value_delimiter=',')]
+    candidates: Option<Vec<u64>>,
     /// Use a voting threshold of one whole seat, as used in Dutch national elections
     #[arg(short, long)]
     national: bool,
@@ -60,7 +65,11 @@ under certain conditions, see the file LICENSE
                     "surpluses"
                 }
             );
-            let mut seats = vec![Seats::unlimited(); votes.len()];
+            let mut seats = if let Some(cands) = &args.candidates {
+                cands.iter().cloned().map(Seats::limited).collect()
+            } else {
+                vec![Seats::unlimited(); votes.len()]
+            };
             if args.national {
                 allocate_national(Seats::filled(args.seats), &votes, &mut seats);
             } else {
