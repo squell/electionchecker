@@ -119,6 +119,7 @@ fn demo() {
     run_election(24, votes![21, 20]);
     run_election(20, votes![51, 25, 25]);
     run_election(50, votes![26, 25]);
+    run_election(10, votes![30, 12, 8, 8]);
 
     run_election(5, votes![19, 19, 19, 19, 15, 9, 9]);
     run_election(18, votes![100, 16, 6, 5, 5, 5, 5, 4]);
