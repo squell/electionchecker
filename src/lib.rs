@@ -6,7 +6,7 @@ use std::iter;
 /// This performs one step in an apportionment algorithm, allocating seats based on a
 /// "criterion" for how 'worthy' a certain party in the `seats` list is to receive the seats.
 /// It is a **requirement** that the `criterion` algorithm will always rank a party that is
-/// eligible for at least one more "eat" above a party that doesn't.
+/// eligible for at least one more "seat" above a party that doesn't.
 /// The `criterion` can signal that a party isn't eligible for seats by returning `None`.
 pub fn allocate_single_step<Quality: Ord>(
     votes: &[Votes],
@@ -94,7 +94,7 @@ fn debug_results(mut things: impl Iterator<Item: std::fmt::Display>) {
 
 /// Perform a seat apportionment based on the given method.
 /// It is a **requirement** that the `criterion` algorithm will always rank a party that is
-/// eligible for at least one more "eat" above a party that doesn't.
+/// eligible for at least one more "seat" above a party that doesn't.
 pub fn allocate_seats<Quality: Ord>(
     votes: &[Votes],
     seats: &mut [Seats],
@@ -144,7 +144,7 @@ pub fn allocate_seats<Quality: Ord>(
 }
 
 /// Perform a seat apportionment, only handing out full seats. This is not necessary but has the
-/// benefit that it is criterion-agnostic and faster than an explicit loopp.
+/// benefit that it is criterion-agnostic and faster than an explicit loop.
 #[allow(unused)]
 pub fn allocate_whole_seats(votes: &[Votes], seats: &mut [Seats], available_seats: &mut Seats) {
     let vote_count = votes.iter().map(|Votes(count)| count).sum::<Count>();
