@@ -71,15 +71,6 @@ pub fn absolute_majority_check(votes: &[Votes], seats: &mut [Seats], prev_seats:
 }
 
 #[cfg(feature = "chatty")]
-pub fn whole_seats_available(votes: &[Votes], seats: &[Seats], seats_awarded: Seats) -> bool {
-    let total_seats = seats_awarded.count() + seats.iter().map(|x| x.count()).sum::<Count>();
-    let total_votes = votes.iter().map(|Votes(x)| x).sum::<Count>();
-    iter::zip(votes, seats).any(|(Votes(cur_vote), cur_seat)| {
-        frac(*cur_vote, cur_seat.count() + 1) >= frac(total_votes, total_seats)
-    })
-}
-
-#[cfg(feature = "chatty")]
 fn debug_results(mut things: impl Iterator<Item: std::fmt::Display>) {
     let Some(first) = things.next() else {
         return;
@@ -101,22 +92,7 @@ pub fn allocate_seats<Quality: Ord>(
     method: impl Fn(Votes, Seats) -> Option<Quality> + Copy,
 ) {
     let mut last_winners = seats.to_owned();
-    #[cfg(feature = "chatty")]
-    let mut printed = false;
     while available_seats.count() > 0 {
-        #[cfg(feature = "chatty")]
-        if !(whole_seats_available(votes, seats, *available_seats) || printed) {
-            printed = true;
-            eprintln!("whole seats:");
-            debug_results(
-                seats
-                    .iter()
-                    .enumerate()
-                    .filter_map(|(n, x)| (x.count() > 0).then_some(format!("{n}: {x}"))),
-            );
-            eprintln!("rest seats ({})", available_seats.count());
-        }
-
         last_winners.copy_from_slice(seats);
 
         if allocate_single_step(votes, seats, available_seats, method).is_none() {
@@ -125,15 +101,13 @@ pub fn allocate_seats<Quality: Ord>(
 
         #[cfg(feature = "chatty")]
         if cfg!(feature = "succinct-chatty") {
-            if printed {
-                debug_results(
-                    seats
-                        .iter()
-                        .zip(last_winners.iter())
-                        .enumerate()
-                        .filter_map(|(n, (x, y))| (x != y).then_some(format!("rest seat for {n}"))),
-                );
-            }
+            debug_results(
+                seats
+                    .iter()
+                    .zip(last_winners.iter())
+                    .enumerate()
+                    .filter_map(|(n, (x, y))| (x != y).then_some(format!("rest seat for {n}"))),
+            );
         } else {
             debug_results(seats.iter());
         }
@@ -155,6 +129,18 @@ pub fn allocate_whole_seats(votes: &[Votes], seats: &mut [Seats], available_seat
                 seat.transfer(available_seats)
             }
         }
+    }
+
+    #[cfg(feature = "chatty")]
+    {
+        eprintln!("whole seats:");
+        debug_results(
+            seats
+                .iter()
+                .enumerate()
+                .filter_map(|(n, x)| (x.count() > 0).then_some(format!("{n}: {x}"))),
+        );
+        eprintln!("rest seats ({})", available_seats.count());
     }
 }
 
