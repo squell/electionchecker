@@ -38,36 +38,26 @@ pub fn allocate_single_step<Quality: Ord>(
 
 /// This performs the correction stipulated in the Dutch law that a party that gets an
 /// absolute majority in votes also gets an absolute majority in seats.
-/// It is **required** that `prev_seats` contains the seat allocation of the penultimate
-/// step in the seat allocation algorithm (since that will determine who loses a seat).
 /// This step is criterion-agnostic.
-pub fn absolute_majority_check(votes: &[Votes], seats: &mut [Seats], prev_seats: Vec<Seats>) {
+pub fn absolute_majority_corrected(
+    votes: &[Votes],
+    seats: &mut [Seats],
+    available_seats: &mut Seats,
+) -> Option<()> {
     let total_votes = votes.iter().map(|Votes(count)| count).sum::<Count>();
-    let total_seats = seats.iter().map(|count| count.count()).sum::<Count>();
-
-    let mut correction = Seats::filled(1);
+    let total_seats =
+        seats.iter().map(|count| count.count()).sum::<Count>() + available_seats.count();
 
     let absolute_majority = |count, total| 2 * count > total;
 
-    if let Some((_, winner_seat)) =
-        iter::zip(votes, seats.iter_mut()).find(|(Votes(cur_vote), cur_seat)| {
-            cur_seat.has_candidates()
-                && absolute_majority(*cur_vote, total_votes)
-                && !absolute_majority(cur_seat.count(), total_seats)
-        })
-    {
-        #[cfg(feature = "chatty")]
-        eprintln!("an absolute majority correction was performed");
-        winner_seat.transfer(&mut correction);
-        let winner_seat = *winner_seat;
+    let (_, winner) = iter::zip(votes, seats.iter_mut()).find(|(Votes(cur_vote), cur_seat)| {
+        cur_seat.has_candidates()
+            && absolute_majority(*cur_vote, total_votes)
+            && !absolute_majority(cur_seat.count(), total_seats)
+    })?;
 
-        let last_winners = iter::zip(seats.iter_mut(), prev_seats)
-            .filter_map(|(x, y)| (*x > y && *x != winner_seat).then_some(x))
-            .collect::<Vec<_>>();
-
-        let loser_seat = balloted(last_winners).unwrap();
-        correction.transfer(loser_seat);
-    }
+    winner.transfer(available_seats);
+    Some(())
 }
 
 #[cfg(feature = "chatty")]
@@ -91,29 +81,45 @@ pub fn allocate_seats<Quality: Ord>(
     available_seats: &mut Seats,
     method: impl Fn(Votes, Seats) -> Option<Quality> + Copy,
 ) {
-    let mut last_winners = seats.to_owned();
-    while available_seats.count() > 0 {
-        last_winners.copy_from_slice(seats);
+    #[cfg(feature = "chatty")]
+    let mut debug_chat = {
+        let mut last_winners = seats.to_owned();
+        move |seats: &[Seats]| {
+            if cfg!(feature = "succinct-chatty") {
+                debug_results(
+                    seats
+                        .iter()
+                        .zip(last_winners.iter())
+                        .enumerate()
+                        .filter_map(|(n, (x, y))| (x != y).then_some(format!("rest seat for {n}"))),
+                );
+            } else {
+                debug_results(seats.iter());
+            }
 
+            last_winners.copy_from_slice(seats);
+        }
+    };
+
+    while available_seats.count() > 1 {
         if allocate_single_step(votes, seats, available_seats, method).is_none() {
             return;
         }
 
         #[cfg(feature = "chatty")]
-        if cfg!(feature = "succinct-chatty") {
-            debug_results(
-                seats
-                    .iter()
-                    .zip(last_winners.iter())
-                    .enumerate()
-                    .filter_map(|(n, (x, y))| (x != y).then_some(format!("rest seat for {n}"))),
-            );
-        } else {
-            debug_results(seats.iter());
-        }
+        debug_chat(seats);
     }
 
-    absolute_majority_check(votes, seats, last_winners);
+    if absolute_majority_corrected(votes, seats, available_seats).is_some() {
+        #[cfg(feature = "chatty")]
+        eprintln!("an absolute majority correction was performed");
+        #[cfg(feature = "chatty")]
+        debug_chat(seats);
+    } else if available_seats.count() > 0 {
+        allocate_single_step(votes, seats, available_seats, method);
+        #[cfg(feature = "chatty")]
+        debug_chat(seats);
+    }
 }
 
 /// Perform a seat apportionment, only handing out full seats. This is not necessary but has the
