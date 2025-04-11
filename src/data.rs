@@ -117,28 +117,7 @@ impl std::fmt::Display for Fraction {
     }
 }
 
-// this has a different behaviour in case rest seats have to be distributed
-// over lists that have received 0 votes than the 'true ballot' approach; but
-// otherwise is identical to it
-#[cfg(not(feature = "force-ballots"))]
-pub fn balloted<T>(mut vec: Vec<T>, limit: Count) -> impl Iterator<Item = T> {
-    use rand::rng;
-    use rand::seq::SliceRandom;
-
-    let limit: usize = limit.try_into().unwrap();
-    #[cfg(feature = "chatty")]
-    if limit < vec.len() {
-        eprintln!("non-deterministic choice!");
-    }
-
-    vec.shuffle(&mut rng());
-    vec.truncate(limit);
-
-    vec.into_iter()
-}
-
-#[cfg(feature = "force-ballots")]
-pub fn balloted<T>(vec: Vec<T>, _limit: Count) -> impl Iterator<Item = T> {
+pub fn balloted<T>(vec: Vec<T>) -> Option<T> {
     use rand::rng;
     use rand::seq::IteratorRandom;
 
@@ -147,5 +126,5 @@ pub fn balloted<T>(vec: Vec<T>, _limit: Count) -> impl Iterator<Item = T> {
         eprintln!("non-deterministic choice!");
     }
 
-    vec.into_iter().choose(&mut rng()).into_iter()
+    vec.into_iter().choose(&mut rng())
 }
