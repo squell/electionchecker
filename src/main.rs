@@ -226,15 +226,18 @@ fn validate(data_sources: &Vec<PathBuf>) {
             )
         });
 
-        for (id, ref votes, outcome, candidates) in records {
+        for (id, votes, outcome, candidates) in records {
             #[cfg(feature = "rand-validate")]
-            let (ref votes, outcome): (Vec<_>, Vec<_>) = {
-                use rand::seq::SliceRandom;
-                let mut mingle = std::iter::zip(votes, outcome).collect::<Vec<_>>();
-                mingle.shuffle(&mut rand::rng());
-                mingle.into_iter().unzip()
-            };
+            let (votes, outcome, candidates) = {
+                let (mut votes, mut outcome, mut candidates) = (votes, outcome, candidates);
+                use rand::{rngs::StdRng, seq::SliceRandom, SeedableRng};
+                let rng = StdRng::from_os_rng();
+                votes.shuffle(&mut rng.clone());
+                outcome.shuffle(&mut rng.clone());
+                candidates.shuffle(&mut rng.clone());
 
+                (votes, outcome, candidates)
+            };
             let total_seats = outcome.iter().map(|x| x.count()).sum();
             println!("checking {}:{id}", data_source.display());
 
@@ -243,15 +246,15 @@ fn validate(data_sources: &Vec<PathBuf>) {
             let file_name = data_source.file_name().unwrap().to_string_lossy();
             if file_name.starts_with("uitslag_TK") || file_name.starts_with("uitslag_EP") {
                 match &file_name[10..14] {
-                    "1918" => allocate_1918(Seats::filled(total_seats), votes, &mut seats),
-                    "1922" => allocate_1922(Seats::filled(total_seats), votes, &mut seats),
+                    "1918" => allocate_1918(Seats::filled(total_seats), &votes, &mut seats),
+                    "1922" => allocate_1922(Seats::filled(total_seats), &votes, &mut seats),
                     "1925" | "1929" | "1933" => {
-                        allocate_bongaerts(Seats::filled(total_seats), votes, &mut seats)
+                        allocate_bongaerts(Seats::filled(total_seats), &votes, &mut seats)
                     }
-                    _ => allocate_national(Seats::filled(total_seats), votes, &mut seats),
+                    _ => allocate_national(Seats::filled(total_seats), &votes, &mut seats),
                 }
             } else {
-                allocate(Seats::filled(total_seats), votes, &mut seats);
+                allocate(Seats::filled(total_seats), &votes, &mut seats);
             }
 
             assert_eq!(

@@ -9,7 +9,7 @@ csv = { version = "1.3.1", optional = true }
 clap = { version = "4.5", features = ["derive"] }
 
 [features]
-default = ["validate", "lawful"]
+default = ["rand-validate", "lawful", "whole-seat-opt"]
 chatty = []
 validate = ["dep:csv"]
 rand-validate = ["validate"]
