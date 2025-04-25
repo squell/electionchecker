@@ -8,12 +8,11 @@ use std::iter;
 /// It is a **requirement** that the `criterion` algorithm will always rank a party that is
 /// eligible for at least one more "seat" above a party that doesn't.
 /// The `criterion` can signal that a party isn't eligible for seats by returning `None`.
-pub fn allocate_single_step<Quality: Ord>(
+pub fn allocation_winner<'a, Quality: Ord>(
     votes: &[Votes],
-    seats: &mut [Seats],
-    available_seats: &mut Seats,
+    seats: &'a mut [Seats],
     criterion: impl Fn(Votes, Seats) -> Option<Quality>,
-) -> Option<()> {
+) -> Option<&'a mut Seats> {
     let qualities = iter::zip(votes, seats.iter())
         .map(|(votes, seats)| {
             if seats.has_candidates() {
@@ -31,19 +30,18 @@ pub fn allocate_single_step<Quality: Ord>(
         .collect::<Vec<_>>();
 
     let seat = balloted(awarded)?;
-    seat.transfer(available_seats);
 
-    Some(())
+    Some(seat)
 }
 
 /// This performs the correction stipulated in the Dutch law that a party that gets an
 /// absolute majority in votes also gets an absolute majority in seats.
 /// This step is criterion-agnostic.
-pub fn absolute_majority_corrected(
+pub fn absolute_majority_winner<'a>(
     votes: &[Votes],
-    seats: &mut [Seats],
-    available_seats: &mut Seats,
-) -> Option<()> {
+    seats: &'a mut [Seats],
+    available_seats: &Seats,
+) -> Option<&'a mut Seats> {
     let total_votes = votes.iter().map(|Votes(count)| count).sum::<Count>();
     let total_seats =
         seats.iter().map(|count| count.count()).sum::<Count>() + available_seats.count();
@@ -56,8 +54,7 @@ pub fn absolute_majority_corrected(
             && !absolute_majority(cur_seat.count(), total_seats)
     })?;
 
-    winner.transfer(available_seats);
-    Some(())
+    Some(winner)
 }
 
 #[cfg(feature = "chatty")]
@@ -80,7 +77,7 @@ pub fn allocate_seats<Quality: Ord>(
     seats: &mut [Seats],
     available_seats: &mut Seats,
     method: impl Fn(Votes, Seats) -> Option<Quality> + Copy,
-) {
+) -> Option<()> {
     #[cfg(feature = "chatty")]
     let mut debug_chat = {
         let mut last_winners = seats.to_owned();
@@ -102,24 +99,27 @@ pub fn allocate_seats<Quality: Ord>(
     };
 
     while available_seats.count() > 1 {
-        if allocate_single_step(votes, seats, available_seats, method).is_none() {
-            return;
-        }
+        let seat = allocation_winner(votes, seats, method)?;
+        seat.transfer(available_seats);
 
         #[cfg(feature = "chatty")]
         debug_chat(seats);
     }
 
-    if absolute_majority_corrected(votes, seats, available_seats).is_some() {
+    if let Some(seat) = absolute_majority_winner(votes, seats, available_seats) {
+        seat.transfer(available_seats);
         #[cfg(feature = "chatty")]
         eprintln!("an absolute majority correction was performed");
         #[cfg(feature = "chatty")]
         debug_chat(seats);
     } else if available_seats.count() > 0 {
-        allocate_single_step(votes, seats, available_seats, method);
+        let seat = allocation_winner(votes, seats, method)?;
+        seat.transfer(available_seats);
         #[cfg(feature = "chatty")]
         debug_chat(seats);
     }
+
+    Some(())
 }
 
 /// Perform a seat apportionment, only handing out full seats. This is not necessary but has the
