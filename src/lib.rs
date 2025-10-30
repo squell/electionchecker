@@ -37,14 +37,9 @@ pub fn allocation_winner<Quality: Ord>(
 /// This performs the correction stipulated in the Dutch law that a party that gets an
 /// absolute majority in votes also gets an absolute majority in seats.
 /// This step is criterion-agnostic.
-pub fn absolute_majority_winner(
-    votes: &[Votes],
-    seats: &mut [Seats],
-    available_seats: &Seats,
-) -> Option<usize> {
+pub fn absolute_majority_winner(votes: &[Votes], seats: &[Seats]) -> Option<usize> {
     let total_votes = votes.iter().map(|Votes(count)| count).sum::<Count>();
-    let total_seats =
-        seats.iter().map(|count| count.count()).sum::<Count>() + available_seats.count();
+    let total_seats = seats.iter().map(|count| count.count()).sum::<Count>();
 
     let absolute_majority = |count, total| 2 * count > total;
 
@@ -99,23 +94,22 @@ pub fn allocate_seats<Quality: Ord>(
         }
     };
 
-    while available_seats.count() > 1 {
-        let winner = allocation_winner(votes, seats, method)?;
-        seats[winner].transfer(available_seats);
+    let mut last_seat = None;
+
+    while available_seats.count() > 0 {
+        last_seat = allocation_winner(votes, seats, method);
+        seats[last_seat?].transfer(available_seats);
 
         #[cfg(feature = "chatty")]
         debug_chat(seats);
     }
 
-    if let Some(abs_winner) = absolute_majority_winner(votes, seats, available_seats) {
-        seats[abs_winner].transfer(available_seats);
+    if let Some(winner) = absolute_majority_winner(votes, seats) {
+        available_seats.transfer(&mut seats[last_seat.unwrap()]);
+        seats[winner].transfer(available_seats);
+
         #[cfg(feature = "chatty")]
         eprintln!("an absolute majority correction was performed");
-        #[cfg(feature = "chatty")]
-        debug_chat(seats);
-    } else if available_seats.count() > 0 {
-        let winner = allocation_winner(votes, seats, method)?;
-        seats[winner].transfer(available_seats);
         #[cfg(feature = "chatty")]
         debug_chat(seats);
     }
