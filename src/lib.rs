@@ -68,7 +68,7 @@ fn debug_results(mut things: impl Iterator<Item: std::fmt::Display>) {
 /// Perform a seat apportionment based on the given method.
 /// It is a **requirement** that the `criterion` algorithm will always rank a party that is
 /// eligible for at least one more "seat" above a party that doesn't.
-pub fn allocate_seats<Quality: Ord>(
+pub fn allocate_seats<Quality: Ord + std::fmt::Display>(
     votes: &[Votes],
     seats: &mut [Seats],
     available_seats: &mut Seats,
@@ -84,7 +84,14 @@ pub fn allocate_seats<Quality: Ord>(
                         .iter()
                         .zip(last_winners.iter())
                         .enumerate()
-                        .filter_map(|(n, (x, y))| (x != y).then_some(format!("rest seat for {n}"))),
+                        .filter_map(|(n, (x, y))| {
+                            (x != y).then_some(format!(
+                                "rest seat for {n} [{}]",
+                                method(votes[n], *y)
+                                    .map(|x| x.to_string())
+                                    .unwrap_or("#".to_string())
+                            ))
+                        }),
                 );
             } else {
                 debug_results(seats.iter());

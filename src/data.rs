@@ -110,9 +110,40 @@ impl Eq for Fraction {}
 
 impl std::fmt::Display for Fraction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-        match self.denominator {
-            1 => write!(f, "{}", self.numerator),
-            _ => write!(f, "{}/{}", self.numerator, self.denominator),
+        if cfg!(feature = "nice-frac") {
+            let whole = self.numerator / self.denominator;
+            let mut frac = self.numerator % self.denominator;
+
+            if frac == 0 {
+                write!(f, "{whole}")
+            } else {
+                let mut tail = String::new();
+                let mut seen = vec![0];
+                loop {
+                    if let Some(i) = seen.iter().position(|x| *x == frac) {
+                        if frac == 0 {
+                            return write!(f, "{whole}.{tail}");
+                        } else {
+                            return write!(
+                                f,
+                                "{whole}.{}\x1b[4m{}\x1b[0m",
+                                &tail[..i - 1],
+                                &tail[i - 1..]
+                            );
+                        }
+                    }
+                    seen.push(frac);
+                    frac *= 10;
+                    let digit = frac / self.denominator;
+                    frac %= self.denominator;
+                    tail.push(b"0123456789"[digit as usize] as char);
+                }
+            }
+        } else {
+            match self.denominator {
+                1 => write!(f, "{}", self.numerator),
+                _ => write!(f, "{}/{}", self.numerator, self.denominator),
+            }
         }
     }
 }
