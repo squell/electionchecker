@@ -8,11 +8,11 @@ use std::iter;
 /// It is a **requirement** that the `criterion` algorithm will always rank a party that is
 /// eligible for at least one more "seat" above a party that doesn't.
 /// The `criterion` can signal that a party isn't eligible for seats by returning `None`.
-pub fn allocation_winner<'a, Quality: Ord>(
+pub fn allocation_winner<Quality: Ord>(
     votes: &[Votes],
-    seats: &'a mut [Seats],
+    seats: &[Seats],
     criterion: impl Fn(Votes, Seats) -> Option<Quality>,
-) -> Option<&'a mut Seats> {
+) -> Option<usize> {
     let qualities = iter::zip(votes, seats.iter())
         .map(|(votes, seats)| {
             if seats.has_candidates() {
@@ -25,7 +25,7 @@ pub fn allocation_winner<'a, Quality: Ord>(
 
     let max_quality = qualities.iter().max().unwrap().as_ref()?;
 
-    let awarded = iter::zip(qualities.iter(), seats)
+    let awarded = iter::zip(qualities.iter(), 0..seats.len())
         .filter_map(|(quality, seat)| (quality.as_ref() == Some(max_quality)).then_some(seat))
         .collect::<Vec<_>>();
 
@@ -37,18 +37,19 @@ pub fn allocation_winner<'a, Quality: Ord>(
 /// This performs the correction stipulated in the Dutch law that a party that gets an
 /// absolute majority in votes also gets an absolute majority in seats.
 /// This step is criterion-agnostic.
-pub fn absolute_majority_winner<'a>(
+pub fn absolute_majority_winner(
     votes: &[Votes],
-    seats: &'a mut [Seats],
+    seats: &mut [Seats],
     available_seats: &Seats,
-) -> Option<&'a mut Seats> {
+) -> Option<usize> {
     let total_votes = votes.iter().map(|Votes(count)| count).sum::<Count>();
     let total_seats =
         seats.iter().map(|count| count.count()).sum::<Count>() + available_seats.count();
 
     let absolute_majority = |count, total| 2 * count > total;
 
-    let (_, winner) = iter::zip(votes, seats.iter_mut()).find(|(Votes(cur_vote), cur_seat)| {
+    let (_, winner) = iter::zip(votes, 0..seats.len()).find(|(Votes(cur_vote), i)| {
+        let cur_seat = seats[*i];
         cur_seat.has_candidates()
             && absolute_majority(*cur_vote, total_votes)
             && !absolute_majority(cur_seat.count(), total_seats)
@@ -99,22 +100,22 @@ pub fn allocate_seats<Quality: Ord>(
     };
 
     while available_seats.count() > 1 {
-        let seat = allocation_winner(votes, seats, method)?;
-        seat.transfer(available_seats);
+        let winner = allocation_winner(votes, seats, method)?;
+        seats[winner].transfer(available_seats);
 
         #[cfg(feature = "chatty")]
         debug_chat(seats);
     }
 
-    if let Some(seat) = absolute_majority_winner(votes, seats, available_seats) {
-        seat.transfer(available_seats);
+    if let Some(abs_winner) = absolute_majority_winner(votes, seats, available_seats) {
+        seats[abs_winner].transfer(available_seats);
         #[cfg(feature = "chatty")]
         eprintln!("an absolute majority correction was performed");
         #[cfg(feature = "chatty")]
         debug_chat(seats);
     } else if available_seats.count() > 0 {
-        let seat = allocation_winner(votes, seats, method)?;
-        seat.transfer(available_seats);
+        let winner = allocation_winner(votes, seats, method)?;
+        seats[winner].transfer(available_seats);
         #[cfg(feature = "chatty")]
         debug_chat(seats);
     }
