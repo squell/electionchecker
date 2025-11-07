@@ -78,24 +78,20 @@ pub fn allocate_seats<Quality: Ord + Clone + std::fmt::Display>(
     let mut debug_chat = {
         let mut last_winners = seats.to_owned();
         move |seats: &[Seats]| {
-            if cfg!(feature = "succinct-chatty") {
-                debug_results(
-                    seats
-                        .iter()
-                        .zip(last_winners.iter())
-                        .enumerate()
-                        .filter_map(|(n, (x, y))| {
-                            (x != y).then_some(format!(
-                                "rest seat for {n} [{}]",
-                                method(votes[n], *y)
-                                    .map(|x| x.to_string())
-                                    .unwrap_or("#".to_string())
-                            ))
-                        }),
-                );
-            } else {
-                debug_results(seats.iter());
-            }
+            debug_results(
+                seats
+                    .iter()
+                    .zip(last_winners.iter())
+                    .enumerate()
+                    .filter_map(|(n, (x, y))| {
+                        (x != y).then_some(format!(
+                            "rest seat for {n} [{}]",
+                            method(votes[n], *y)
+                                .map(|x| x.to_string())
+                                .unwrap_or("#".to_string())
+                        ))
+                    }),
+            );
 
             last_winners.copy_from_slice(seats);
         }
@@ -121,7 +117,7 @@ pub fn allocate_seats<Quality: Ord + Clone + std::fmt::Display>(
         debug_chat(seats);
     }
 
-    #[cfg(feature = "succinct-chatty")]
+    #[cfg(feature = "chatty")]
     if let Some((n, q)) = votes
         .iter()
         .zip(seats as &[Seats])
