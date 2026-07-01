@@ -241,26 +241,43 @@ fn validate(data_sources: &Vec<PathBuf>) {
             let total_seats = outcome.iter().map(|x| x.count()).sum();
             println!("checking {}:{id}", data_source.display());
 
-            let mut seats = candidates;
-
             let file_name = data_source.file_name().unwrap().to_string_lossy();
-            if file_name.starts_with("uitslag_TK") || file_name.starts_with("uitslag_EP") {
-                match &file_name[10..14] {
-                    "1918" => allocate_1918(Seats::filled(total_seats), &votes, &mut seats),
-                    "1922" => allocate_1922(Seats::filled(total_seats), &votes, &mut seats),
-                    "1925" | "1929" | "1933" => {
-                        allocate_bongaerts(Seats::filled(total_seats), &votes, &mut seats)
-                    }
-                    _ => allocate_national(Seats::filled(total_seats), &votes, &mut seats),
-                }
-            } else {
-                allocate(Seats::filled(total_seats), &votes, &mut seats);
-            }
 
-            assert_eq!(
-                seats.iter().map(|x| x.count()).collect::<Vec<_>>(),
-                outcome.iter().map(|x| x.count()).collect::<Vec<_>>()
-            );
+            // Due to drawing of lots, as happened in GR 2026 at Roermond, there can be multiple
+            // correct outcomes of an election.
+            #[allow(clippy::never_loop)]
+            loop {
+                #[cfg(feature = "loop-validate")]
+                let candidates = candidates.clone();
+
+                let mut seats = candidates;
+
+                if file_name.starts_with("uitslag_TK") || file_name.starts_with("uitslag_EP") {
+                    match &file_name[10..14] {
+                        "1918" => allocate_1918(Seats::filled(total_seats), &votes, &mut seats),
+                        "1922" => allocate_1922(Seats::filled(total_seats), &votes, &mut seats),
+                        "1925" | "1929" | "1933" => {
+                            allocate_bongaerts(Seats::filled(total_seats), &votes, &mut seats)
+                        }
+                        _ => allocate_national(Seats::filled(total_seats), &votes, &mut seats),
+                    }
+                } else {
+                    allocate(Seats::filled(total_seats), &votes, &mut seats);
+                }
+
+                let seats = seats.iter().map(|x| x.count()).collect::<Vec<_>>();
+                let outcome = outcome.iter().map(|x| x.count()).collect::<Vec<_>>();
+
+                #[cfg(feature = "loop-validate")]
+                if seats != outcome {
+                    // this will cause non-termination as an error condition
+                    continue;
+                }
+
+                assert_eq!(seats, outcome,);
+
+                break;
+            }
         }
     }
 }
