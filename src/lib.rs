@@ -34,10 +34,24 @@ pub fn allocation_winner<Quality: Ord>(
     Some(seat)
 }
 
+// In OSV and Abacus, the absolute majority winner is calculated based on the elections results
+// as-if no list exhaustion exists. Based on the interpretation that article P9 precedes P10. This
+// forces us to calculate the election results twice. Because that's hard to do as it cuts across
+// potentially multiple rounds of rest seat awards, we solve this using a global.
+#[cfg(not(feature = "lawful"))]
+thread_local! {
+    static ABSOLUTE_MAJORITY_WINNER: std::cell::Cell<Option<usize>> = None.into();
+}
+
 /// This performs the correction stipulated in the Dutch law that a party that gets an
 /// absolute majority in votes also gets an absolute majority in seats.
 /// This step is criterion-agnostic.
 pub fn absolute_majority_winner(votes: &[Votes], seats: &[Seats]) -> Option<usize> {
+    #[cfg(not(feature = "lawful"))]
+    if let Some(winner) = ABSOLUTE_MAJORITY_WINNER.get() {
+        return seats[winner].has_candidates().then_some(winner);
+    }
+
     let total_votes = votes.iter().map(|Votes(count)| count).sum::<Count>();
     let total_seats = seats.iter().map(|count| count.count()).sum::<Count>();
 
@@ -49,6 +63,9 @@ pub fn absolute_majority_winner(votes: &[Votes], seats: &[Seats]) -> Option<usiz
             && absolute_majority(*cur_vote, total_votes)
             && !absolute_majority(cur_seat.count(), total_seats)
     })?;
+
+    #[cfg(not(feature = "lawful"))]
+    ABSOLUTE_MAJORITY_WINNER.set(Some(winner));
 
     Some(winner)
 }
@@ -227,6 +244,9 @@ pub fn allocate_per_surplus(mut total_seats: Seats, votes: &[Votes], seats: &mut
         );
     }
 
+    // In the Kiesraad specification, an undocumented-by-law third round of unrestricted
+    // averages is stipulated as a last-ditch effort, in preference to leaving seats
+    // unoccupied. This has never happened in practice.
     #[cfg(not(feature = "lawful"))]
     if total_seats.count() > 0 {
         #[cfg(feature = "chatty")]
@@ -238,6 +258,9 @@ pub fn allocate_per_surplus(mut total_seats: Seats, votes: &[Votes], seats: &mut
 /// Perform a seat apportionment, selecting D'Hondt or modified-Hamilton
 /// based on the number of seats, as Dutch law does for bodies.
 pub fn allocate(total_seats: Seats, votes: &[Votes], seats: &mut [Seats]) {
+    #[cfg(not(feature = "lawful"))]
+    prefetch_majority_correction(allocate, total_seats, votes, seats);
+
     if total_seats.count() >= 19 {
         allocate_per_average(total_seats, votes, seats);
     } else {
@@ -251,6 +274,9 @@ pub fn allocate_national(mut total_seats: Seats, votes: &[Votes], seats: &mut [S
     let vote_count = votes.iter().map(|Votes(count)| count).sum::<Count>();
     let seat_count = total_seats.count();
 
+    #[cfg(not(feature = "lawful"))]
+    prefetch_majority_correction(allocate_national, total_seats, votes, seats);
+
     #[cfg(feature = "whole-seat-opt")]
     allocate_whole_seats(votes, seats, &mut total_seats);
 
@@ -263,6 +289,36 @@ pub fn allocate_national(mut total_seats: Seats, votes: &[Votes], seats: &mut [S
                 .then_some(frac(cur_vote, cur_seat.count() + 1))
         },
     );
+}
+
+/// Perform an "optimistic" majority correction on the results before considering list exhaustion.
+#[cfg(not(feature = "lawful"))]
+fn prefetch_majority_correction(
+    alloc: fn(Seats, &[Votes], &mut [Seats]),
+    total_seats: Seats,
+    votes: &[Votes],
+    seats: &[Seats],
+) {
+    use std::cmp::{max, min};
+    let mut max_vote = 0;
+    let mut sum_vote = 0;
+    let mut min_limit = Count::MAX;
+    for (&Votes(vote), seat) in iter::zip(votes, seats) {
+        max_vote = max(max_vote, vote);
+        min_limit = min(min_limit, seat.limit);
+        sum_vote += vote;
+    }
+
+    let absolute_majority_exists = 2 * max_vote > sum_vote;
+
+    ABSOLUTE_MAJORITY_WINNER.set(None);
+
+    if absolute_majority_exists && min_limit < Count::MAX {
+        // run a shadow allocation with unlimited party lists to load the majority winner
+        // in the thread_local Cell as a side effect
+        let seats = &mut vec![Seats::unlimited(); seats.len()];
+        alloc(total_seats, votes, seats);
+    }
 }
 
 /// Perform a seat apportionment using the method that seems to have been in place from 1925 until
