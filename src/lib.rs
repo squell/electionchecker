@@ -40,7 +40,7 @@ pub fn allocation_winner<Quality: Ord>(
 // potentially multiple rounds of rest seat awards, we solve this using a global.
 #[cfg(feature = "undocumented")]
 thread_local! {
-    static ABSOLUTE_MAJORITY_WINNER: std::cell::Cell<Option<usize>> = None.into();
+    static ABSOLUTE_MAJORITY_WINNER: std::cell::Cell<Option<Option<usize>>> = None.into();
 }
 
 /// This performs the correction stipulated in the Dutch law that a party that gets an
@@ -48,7 +48,7 @@ thread_local! {
 /// This step is criterion-agnostic.
 pub fn absolute_majority_winner(votes: &[Votes], seats: &[Seats]) -> Option<usize> {
     #[cfg(feature = "undocumented")]
-    if let Some(winner) = ABSOLUTE_MAJORITY_WINNER.get() {
+    if let Some(Some(winner)) = ABSOLUTE_MAJORITY_WINNER.get() {
         return seats[winner].has_candidates().then_some(winner);
     }
 
@@ -65,7 +65,9 @@ pub fn absolute_majority_winner(votes: &[Votes], seats: &[Seats]) -> Option<usiz
     })?;
 
     #[cfg(feature = "undocumented")]
-    ABSOLUTE_MAJORITY_WINNER.set(Some(winner));
+    if let Some(None) = ABSOLUTE_MAJORITY_WINNER.get() {
+        ABSOLUTE_MAJORITY_WINNER.set(Some(Some(winner)));
+    }
 
     Some(winner)
 }
@@ -258,12 +260,12 @@ pub fn allocate_per_surplus(mut total_seats: Seats, votes: &[Votes], seats: &mut
 /// Perform a seat apportionment, selecting D'Hondt or modified-Hamilton
 /// based on the number of seats, as Dutch law does for bodies.
 pub fn allocate(total_seats: Seats, votes: &[Votes], seats: &mut [Seats]) {
-    #[cfg(feature = "undocumented")]
-    prefetch_majority_correction(allocate, total_seats, votes, seats);
-
     if total_seats.count() >= 19 {
         allocate_per_average(total_seats, votes, seats);
     } else {
+        #[cfg(feature = "undocumented")]
+        let _guard = prefetch_majority_correction(allocate_per_surplus, total_seats, votes, seats);
+
         allocate_per_surplus(total_seats, votes, seats);
     }
 }
@@ -273,9 +275,6 @@ pub fn allocate(total_seats: Seats, votes: &[Votes], seats: &mut [Seats]) {
 pub fn allocate_national(mut total_seats: Seats, votes: &[Votes], seats: &mut [Seats]) {
     let vote_count = votes.iter().map(|Votes(count)| count).sum::<Count>();
     let seat_count = total_seats.count();
-
-    #[cfg(feature = "undocumented")]
-    prefetch_majority_correction(allocate_national, total_seats, votes, seats);
 
     #[cfg(feature = "whole-seat-opt")]
     allocate_whole_seats(votes, seats, &mut total_seats);
@@ -293,12 +292,13 @@ pub fn allocate_national(mut total_seats: Seats, votes: &[Votes], seats: &mut [S
 
 /// Perform an "optimistic" majority correction on the results before considering list exhaustion.
 #[cfg(feature = "undocumented")]
-fn prefetch_majority_correction(
+#[must_use]
+fn prefetch_majority_correction<'a>(
     alloc: fn(Seats, &[Votes], &mut [Seats]),
     total_seats: Seats,
     votes: &[Votes],
     seats: &[Seats],
-) {
+) -> impl Drop + 'a {
     use std::cmp::{max, min};
     let mut max_vote = 0;
     let mut sum_vote = 0;
@@ -311,7 +311,14 @@ fn prefetch_majority_correction(
 
     let absolute_majority_exists = 2 * max_vote > sum_vote;
 
-    ABSOLUTE_MAJORITY_WINNER.set(None);
+    struct Guard;
+    impl Drop for Guard {
+        fn drop(&mut self) {
+            ABSOLUTE_MAJORITY_WINNER.set(None);
+        }
+    }
+
+    ABSOLUTE_MAJORITY_WINNER.set(Some(None));
 
     if absolute_majority_exists && min_limit < Count::MAX {
         // run a shadow allocation with unlimited party lists to load the majority winner
@@ -319,6 +326,8 @@ fn prefetch_majority_correction(
         let seats = &mut vec![Seats::unlimited(); seats.len()];
         alloc(total_seats, votes, seats);
     }
+
+    Guard
 }
 
 /// Perform a seat apportionment using the method that seems to have been in place from 1925 until
