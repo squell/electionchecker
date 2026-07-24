@@ -230,7 +230,7 @@ fn validate(data_sources: &Vec<PathBuf>) {
             #[cfg(feature = "rand-validate")]
             let (votes, outcome, candidates) = {
                 let (mut votes, mut outcome, mut candidates) = (votes, outcome, candidates);
-                use rand::{rngs::StdRng, seq::SliceRandom, SeedableRng};
+                use rand::{SeedableRng, rngs::StdRng, seq::SliceRandom};
                 let rng = StdRng::from_os_rng();
                 votes.shuffle(&mut rng.clone());
                 outcome.shuffle(&mut rng.clone());
