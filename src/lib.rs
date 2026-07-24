@@ -15,7 +15,7 @@ pub fn allocation_winner<Quality: Ord>(
 ) -> Option<usize> {
     let qualities = iter::zip(votes, seats.iter())
         .map(|(votes, seats)| {
-            if seats.has_candidates() {
+            if seats.has_candidates() && (!cfg!(feature = "undocumented") || *votes > Votes(0)) {
                 criterion(*votes, *seats)
             } else {
                 None
@@ -38,7 +38,7 @@ pub fn allocation_winner<Quality: Ord>(
 // as-if no list exhaustion exists. Based on the interpretation that article P9 precedes P10. This
 // forces us to calculate the election results twice. Because that's hard to do as it cuts across
 // potentially multiple rounds of rest seat awards, we solve this using a global.
-#[cfg(not(feature = "lawful"))]
+#[cfg(feature = "undocumented")]
 thread_local! {
     static ABSOLUTE_MAJORITY_WINNER: std::cell::Cell<Option<usize>> = None.into();
 }
@@ -47,7 +47,7 @@ thread_local! {
 /// absolute majority in votes also gets an absolute majority in seats.
 /// This step is criterion-agnostic.
 pub fn absolute_majority_winner(votes: &[Votes], seats: &[Seats]) -> Option<usize> {
-    #[cfg(not(feature = "lawful"))]
+    #[cfg(feature = "undocumented")]
     if let Some(winner) = ABSOLUTE_MAJORITY_WINNER.get() {
         return seats[winner].has_candidates().then_some(winner);
     }
@@ -64,7 +64,7 @@ pub fn absolute_majority_winner(votes: &[Votes], seats: &[Seats]) -> Option<usiz
             && !absolute_majority(cur_seat.count(), total_seats)
     })?;
 
-    #[cfg(not(feature = "lawful"))]
+    #[cfg(feature = "undocumented")]
     ABSOLUTE_MAJORITY_WINNER.set(Some(winner));
 
     Some(winner)
@@ -247,7 +247,7 @@ pub fn allocate_per_surplus(mut total_seats: Seats, votes: &[Votes], seats: &mut
     // In the Kiesraad specification, an undocumented-by-law third round of unrestricted
     // averages is stipulated as a last-ditch effort, in preference to leaving seats
     // unoccupied. This has never happened in practice.
-    #[cfg(not(feature = "lawful"))]
+    #[cfg(feature = "undocumented")]
     if total_seats.count() > 0 {
         #[cfg(feature = "chatty")]
         eprintln!("continuing by unrestricted averages");
@@ -258,7 +258,7 @@ pub fn allocate_per_surplus(mut total_seats: Seats, votes: &[Votes], seats: &mut
 /// Perform a seat apportionment, selecting D'Hondt or modified-Hamilton
 /// based on the number of seats, as Dutch law does for bodies.
 pub fn allocate(total_seats: Seats, votes: &[Votes], seats: &mut [Seats]) {
-    #[cfg(not(feature = "lawful"))]
+    #[cfg(feature = "undocumented")]
     prefetch_majority_correction(allocate, total_seats, votes, seats);
 
     if total_seats.count() >= 19 {
@@ -274,7 +274,7 @@ pub fn allocate_national(mut total_seats: Seats, votes: &[Votes], seats: &mut [S
     let vote_count = votes.iter().map(|Votes(count)| count).sum::<Count>();
     let seat_count = total_seats.count();
 
-    #[cfg(not(feature = "lawful"))]
+    #[cfg(feature = "undocumented")]
     prefetch_majority_correction(allocate_national, total_seats, votes, seats);
 
     #[cfg(feature = "whole-seat-opt")]
@@ -292,7 +292,7 @@ pub fn allocate_national(mut total_seats: Seats, votes: &[Votes], seats: &mut [S
 }
 
 /// Perform an "optimistic" majority correction on the results before considering list exhaustion.
-#[cfg(not(feature = "lawful"))]
+#[cfg(feature = "undocumented")]
 fn prefetch_majority_correction(
     alloc: fn(Seats, &[Votes], &mut [Seats]),
     total_seats: Seats,
