@@ -141,6 +141,10 @@ pub fn allocate_whole_seats(votes: &[Votes], seats: &mut [Seats], available_seat
     let vote_count = votes.iter().map(|Votes(count)| count).sum::<Count>();
     let seat_count = available_seats.count();
 
+    if vote_count == 0 {
+        return;
+    }
+
     for (Votes(v), seat) in iter::zip(votes.iter(), seats.iter_mut()) {
         for _ in 0..v * seat_count / vote_count {
             if seat.count() < seat.limit {
