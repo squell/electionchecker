@@ -228,6 +228,14 @@ pub fn allocate_per_surplus(mut total_seats: Seats, votes: &[Votes], seats: &mut
     );
 
     if total_seats.count() > 0 {
+        // The OSV-style majority correction does not influence the determination of "surplus", but
+        // it does influence the "average votes per seat", which is very inconvenient for this round.
+        #[cfg(feature = "undocumented")]
+        let majority_votes = ABSOLUTE_MAJORITY_WINNER
+            .get()
+            .flatten()
+            .and_then(|i| seats[i].has_candidates().then_some(votes[i]));
+
         #[cfg(feature = "chatty")]
         eprintln!("continuing by averages");
         allocate_seats(
@@ -236,12 +244,14 @@ pub fn allocate_per_surplus(mut total_seats: Seats, votes: &[Votes], seats: &mut
             &mut total_seats,
             |Votes(cur_vote), cur_seat| {
                 let cur_seat = cur_seat.count();
-                if frac(cur_vote, 1) >= frac(3 * vote_count, 4 * seat_count) {
+                let has_surplus = if frac(cur_vote, 1) >= frac(3 * vote_count, 4 * seat_count) {
                     has_surplus(cur_vote, cur_seat - 1)
                 } else {
                     has_surplus(cur_vote, cur_seat)
-                }
-                .then_some(frac(cur_vote, cur_seat + 1))
+                };
+                #[cfg(feature = "undocumented")]
+                let cur_seat = cur_seat + Count::from(Some(Votes(cur_vote)) == majority_votes);
+                has_surplus.then_some(frac(cur_vote, cur_seat + 1))
             },
         );
     }
@@ -251,6 +261,16 @@ pub fn allocate_per_surplus(mut total_seats: Seats, votes: &[Votes], seats: &mut
     // unoccupied. This has never happened in practice.
     #[cfg(feature = "undocumented")]
     if total_seats.count() > 0 {
+        // this third round can only happen if there is list exhaustion, so award the majority winner
+        // now to enable easy code re-use
+        if let Some(Some(value)) = ABSOLUTE_MAJORITY_WINNER.replace(None)
+            && seats[value].has_candidates()
+        {
+            #[cfg(feature = "chatty")]
+            eprintln!("awarding a bonus seat to {value}");
+            seats[value].transfer(&mut total_seats);
+        }
+
         #[cfg(feature = "chatty")]
         eprintln!("continuing by unrestricted averages");
         allocate_per_average(total_seats, votes, seats);
